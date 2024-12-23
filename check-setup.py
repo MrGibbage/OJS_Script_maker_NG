@@ -40,8 +40,7 @@ if len(xlsm_files) > 0:
     )
 else:
     print(
-        "*-*-* Did not find any spreadsheets. Be sure to run this program \
-        from the same folder where the spreadsheets are saved.",
+        "*-*-* Did not find any spreadsheets. Be sure to run this program from the same folder where the spreadsheets are saved.",
         tag="error",
         tag_color="red",
         color="red",
@@ -51,8 +50,7 @@ else:
 
 if len(xlsm_files) > 2:
     print(
-        f"*-*-* There should be only one or two spreadsheets in the \
-        folder. We found {len(xlsm_files)} spreadsheets.",
+        f"*-*-* There should be only one or two spreadsheets in the folder. We found {len(xlsm_files)} spreadsheets.",
         tag="error",
         tag_color="red",
         color="red",
@@ -90,6 +88,13 @@ for f in xlsm_files:
             tag_color="red",
             color="red",
         )
+        if (f[:1]=="~"):
+            print(
+                f"It looks like {f} is a temporary file, which suggests you may have an OJS file open in Excel",
+                tag="error",
+                tag_color="red",
+                color="red",
+            )
         print(
             "OJS files should be named with this pattern (all lowercase, "
             "no special characters or spaces)"
@@ -200,6 +205,33 @@ if len(xlsm_files) == 1:
     )
 
 print(divlist, tag="info", tag_color="white", color="white")
+
+# Check to see if any of the spreadsheets are open in Excel
+for division in divlist:
+    this_ojs_filename = base_file_name + division + ".xlsm"
+    print(
+        f"Checking {this_ojs_filename} to see if it is open",
+        tag="info",
+        tag_color="white",
+        color="white",
+    )
+    try:
+        # https://stackoverflow.com/questions/6825994/check-if-a-file-is-open-in-python
+        os.rename(this_ojs_filename, this_ojs_filename)
+        print(
+            f"{this_ojs_filename} is correctly closed.",
+            tag="info",
+            tag_color="white",
+            color="white",
+        )
+    except:
+        print(
+            f"{this_ojs_filename} seems to be open. Do you have this file open in Excel?",
+            tag="error",
+            tag_color="red",
+            color="red",
+        )
+        sys.exit(1)
 
 dataframes = {}
 
