@@ -195,6 +195,7 @@ def set_up_meta_worksheet(tournament:pd.Series, yr: int, seasonName: str):
         print(f'Season year: {yr}; season name: {seasonName}')
         print(tournament)
         if tournament[d + "_OJS"] is not None:
+            print(f'ojs file is not None. Here it is:{tournament[d + "_OJS"]}.')
             ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\ojs\\" + tournament[d + "_OJS"]
             print(f'Loading ojs workbook {ojsfile}')
             ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
