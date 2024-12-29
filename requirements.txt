@@ -1,6 +1,0 @@
-pandas
-pyyaml
-Jinja2
-openpyxl
-print-color
-openpyxl
