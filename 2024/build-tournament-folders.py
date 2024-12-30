@@ -1,6 +1,7 @@
-# This program will run a pre-check on an OJS folder to make
-# sure all of the files are set up correctly
-# These are the checks the program will validate
+# To create an executable file, run
+# .venv\Scripts\pyinstaller.exe -F 2024\build-tournament-folders.py
+# Then copy the build-tournament-folders.exe file from dist to 2024
+#
 import os, sys, re
 
 # pip install openpyxl
@@ -84,7 +85,7 @@ def create_folder(newpath):
 def copy_files(item:pd.Series):
     for filename in extrafilelist:
         try:
-            newpath = dir_path + "\\tournaments\\" + item['Short Name'] + "\\ojs\\"
+            newpath = dir_path + "\\tournaments\\" + item['Short Name'] + "\\"
             shutil.copy(filename, newpath)
         except Exception as e:
             print(
@@ -101,11 +102,11 @@ def copy_files(item:pd.Series):
         ojsfilelist.append(item['D2_OJS'])
     for filename in ojsfilelist:
         try:
-            shutil.copy(template_file, dir_path + "\\tournaments\\" + item["Short Name"] + "\\ojs\\" + filename)
+            shutil.copy(template_file, dir_path + "\\tournaments\\" + item["Short Name"] + "\\" + filename)
             # print(f'Copied {template_file} to {startpath + item["Short Name"] + "\\" + filename}')
         except Exception as  e:
             print(
-                f'Could not copy OJS file: {template_file} to {dir_path + "\\tournaments\\" + item["Short Name"] + "\\ojs\\" + filename}',
+                f'Could not copy OJS file: {template_file} to {dir_path + "\\tournaments\\" + item["Short Name"] + "\\" + filename}',
                 tag="error",
                 tag_color="red",
                 color="red",
@@ -121,7 +122,7 @@ def set_up_tapi_worksheet(tournament:pd.Series):
         if len(divassignees.index) > 0:
             try:
                 # print(divassignees)
-                ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\ojs\\" + tournament[d + "_OJS"]
+                ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
                 ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
                 ws = ojs_book['Team and Program Information']
                 table: Table = ws.tables["OfficialTeamList"]
@@ -169,7 +170,7 @@ def set_up_award_worksheet(tournament:pd.Series, judge_awards: int):
         print(divawards)
 
         if len(divawards.index) > 0:
-            ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\ojs\\" + tournament[d + "_OJS"]
+            ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
             ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
             ws = ojs_book['AwardList']
             table: Table = ws.tables["AwardList"]
@@ -196,7 +197,7 @@ def set_up_meta_worksheet(tournament:pd.Series, yr: int, seasonName: str):
         print(tournament)
         if tournament[d + "_OJS"] is not None:
             print(f'ojs file is not None. Here it is:{tournament[d + "_OJS"]}.')
-            ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\ojs\\" + tournament[d + "_OJS"]
+            ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
             print(f'Loading ojs workbook {ojsfile}')
             ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
             scriptfile = cwd + "\\" + current_year + "\\" + str(yr) + "-" + seasonName + "-" + tournament["Short Name"] + "-" + d + "-script.html"
@@ -288,7 +289,7 @@ except Exception as e:
     sys.exit(1)
 
 for index, row in dfTournaments.iterrows():
-    newpath = dir_path + "\\tournaments\\" + row['Short Name'] + "\\ojs"
+    newpath = dir_path + "\\tournaments\\" + row['Short Name']
     judge_award_count = row['Judges_1'] + row['Judges_2'] + row['Judges_3'] + row['Judges_4'] + row['Judges_5'] + row['Judges_6']
     create_folder(newpath)
     copy_files(row)
