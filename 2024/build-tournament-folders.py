@@ -200,7 +200,7 @@ def set_up_meta_worksheet(tournament:pd.Series, yr: int, seasonName: str):
             ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
             print(f'Loading ojs workbook {ojsfile}')
             ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
-            scriptfile = cwd + "\\" + current_year + "\\" + str(yr) + "-" + seasonName + "-" + tournament["Short Name"] + "-" + d + "-script.html"
+            scriptfile = str(yr) + "-" + seasonName + "-" + tournament["Short Name"] + "-" + d + "-script.html"
             divawards: pd.DataFrame = dfAwards[(dfAwards["Tournament"] == tournament["Short Name"]) & (dfAwards["Div"] == d)]
             divawards = divawards.transpose()
             divawards = divawards.reset_index()

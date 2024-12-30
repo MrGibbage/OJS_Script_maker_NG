@@ -6,21 +6,42 @@ import os, sys, re
 # pip install pandas
 import pandas as pd
 
+from openpyxl.workbook.protection import WorkbookProtection
+from openpyxl import load_workbook, Workbook
+
 # pip install print-color
 from print_color import print
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
+dataframes = {}
+base_file_name: str = ""
 
-def check_column_for_null_values(data: pd.DataFrame, division, cols):
+def open_dataframe(ojsfile: str, sheetname: str, division: str, cols: list[str], header_row: int):
+    try:
+        print(
+            f"Opening dataframe. Now checking the {ojsfile}, {sheetname} worksheet ({division}). Looking for these columns: {cols}",
+            tag=f'{tourn}',
+            tag_color="white",
+            color="white",
+        )
+        dataframe = pd.read_excel(
+            ojsfile,
+            sheet_name=sheetname,
+            header=header_row,
+            # usecols=cols,
+        )
+        print(dataframe)
+        return dataframe
+    except Exception as e:
+        print(f"There was an error reading from the workbook {e}", tag=f'{tourn}', tag_color="red", color="red")
+        input("Press enter to quit...")
+        sys.exit(1)
+
+
+def check_column_for_null_values(data: pd.DataFrame, division: str, cols: list[str]):
     print(f'Here are the columns (null): {cols}')
     try:
         for c in cols:
-            print(
-                f"Checking for NaN values in the {division} {c} column",
-                tag=f'{tourn}',
-                tag_color="white",
-                color="white",
-            )
             if not(data[c].isnull().values.all()):
                 print(
                     f"Found a non NaN value in the {division} {c} column.",
@@ -30,22 +51,22 @@ def check_column_for_null_values(data: pd.DataFrame, division, cols):
                 )
                 input("Press enter to quit...")
                 sys.exit(1)
+            print(
+                f"Checked for expected NaN values in the {division} {c} column -- OK (found NaN)",
+                tag=f'{tourn}',
+                tag_color="white",
+                color="white",
+            )
     except Exception as e:
         print(f"There was an error {e}", tag=f'{tourn}', tag_color="red", color="red")
         input("Press enter to quit...")
         sys.exit(1)
 
 
-def check_column_for_valid_values(data: pd.DataFrame, division, v, cols):
+def check_column_for_valid_values(data: pd.DataFrame, division: str, v: int, cols: list[str]):
     print(f'Here are the columns (valid): {cols}')
     try:
         for c in cols:
-            print(
-                f"Checking for {v} values in the {division}, {c} column",
-                tag=f'{tourn}',
-                tag_color="white",
-                color="white",
-            )
             if (data[c] != v).all():
                 print(
                     f"Found an unexpected value ({v}) in the {division}, {c} column.",
@@ -56,7 +77,12 @@ def check_column_for_valid_values(data: pd.DataFrame, division, v, cols):
                 input("Press enter to quit...")
                 sys.exit(1)
             else:
-                print(f'Column {c} looks good')
+                print(
+                    f"Checked for {v} values in the {division}, {c} column -- OK",
+                    tag=f'{tourn}',
+                    tag_color="white",
+                    color="white",
+                )
     except Exception as e:
         print(f"There was an error {e}", tag=f'{tourn}', tag_color="red", color="red")
         input("Press enter to quit...")
@@ -67,12 +93,6 @@ def check_dataframe_for_valid_team_numbers_and_names(data: pd.DataFrame, divisio
     # print(data)
     for c in ["Team Number", "Team Name"]:
         try:
-            print(
-                f"Checking for null values in the {division} {c} column",
-                tag=f'{tourn}',
-                tag_color="white",
-                color="white",
-            )
             if data[c].isnull().values.any():
                 print(
                     f"Found a null in the {division} OJS Team Numbers\n{data[c]}",
@@ -81,6 +101,12 @@ def check_dataframe_for_valid_team_numbers_and_names(data: pd.DataFrame, divisio
                     color="red",
                 )
                 sys.exit(1)
+            print(
+                f"Checked for null values in the {division} {c} column -- OK",
+                tag=f'{tourn}',
+                tag_color="white",
+                color="white",
+            )
         except Exception as e:
             print(f"There was a team number/name error {e}", tag=f'{tourn}', tag_color="red", color="red")
             input("Press enter to quit...")
@@ -144,7 +170,7 @@ def run_checks(d):
         input("Press enter to quit...")
         sys.exit(1)
 
-    regex: str = "^([0-9]{4}-vadc-fll-challenge-.*)(-ojs-)(.*)-(div[1,2])(\.xlsm)$"
+    regex: str = r"^([0-9]{4}-vadc-fll-challenge-.*)(-ojs-)(.*)-(div[1,2])(.xlsm)$"
 
     for f in xlsm_files:
         print(f"Checking {f}", tag=f'{tourn}', tag_color="white", color="white")
@@ -186,7 +212,6 @@ def run_checks(d):
     divlist: list[str] = ["div1", "div2"]
 
     div: list[str] = []
-    base_file_name: str = ""
     if len(xlsm_files) == 2:
         print(
             "Checking to see if there is a div1 and a div2",
@@ -313,53 +338,40 @@ def run_checks(d):
             sys.exit(1)
 
 #### RESULTS AND RANKINGS
-
-    dataframes = {}
-
-    try:
-        for division in divlist:
-            this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
-            print(
-                f"Opening {this_ojs_filename} to read Results and Rankings",
-                tag=f'{tourn}',
-                tag_color="white",
-                color="white",
-            )
-            dataframes[division] = pd.read_excel(
-                this_ojs_filename,
-                sheet_name="Results and Rankings",
-                header=1,
-                usecols=[
-                    "Team Number",
-                    "Team Name",
-                    "Max Robot Game Score",
-                    "Robot Game Rank",
-                    "Award",
-                    "Advance?",
-                ],
-            )
-            print(
-                "There should be no errors or warnings. All rows below should have team data.\n"
-                "Max Robot game scores should be all 0\n"
-                "Robot game ranks should be all 1\n"
-                "Award and Advance? should be all NaN\n",
-                "All team numbers should be integers and there should not be "
-                "any team names NaN",
-                tag=f'{tourn}',
-                tag_color="white",
-                color="white",
-            )
-            print(dataframes[division])
-    except Exception as e:
+    print(
+        f"Now checking the Results and Rankings worksheet",
+        tag=f'{tourn}',
+        tag_color="yellow",
+        color="yellow",
+    )
+    for division in divlist:
+        this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
+        dataframes[division] = open_dataframe(this_ojs_filename, "Results and Rankings", division, [
+                "Team Number",
+                "Team Name",
+                "Max Robot Game Score",
+                "Robot Game Rank",
+                "Award",
+                "Advance?",
+            ], 1)
         print(
-            f"There was an error reading the OJS spreadsheet {this_ojs_filename}",
+            "There should be no errors or warnings. All rows below should have team data.\n"
+            "Max Robot game scores should be all 0\n"
+            "Robot game ranks should be all 1\n"
+            "Award and Advance? should be all NaN\n",
+            "All team numbers should be integers and there should not be "
+            "any team names NaN",
             tag=f'{tourn}',
-            tag_color="red",
-            color="red",
+            tag_color="white",
+            color="white",
         )
-        print(f"The error message was {e}", tag=f'{tourn}', tag_color="red", color="red")
-        input("Press enter to quit...")
-        sys.exit(1)
+        print(
+            f"{division} dataframe for Results and Rankings",
+            tag=f'{tourn}',
+            tag_color="yellow",
+            color="yellow",
+        )
+        print(dataframes[division])
 
     check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
     check_column_for_valid_values(dataframes[division], division, 0, ["Max Robot Game Score"])
@@ -372,53 +384,38 @@ def run_checks(d):
     print(
         f"Now checking the Robot Game Scores worksheet",
         tag=f'{tourn}',
-        tag_color="white",
-        color="white",
+        tag_color="yellow",
+        color="yellow",
     )
-    try:
-        for division in divlist:
-            this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
-            print(
-                f"Opening {this_ojs_filename} to read {division} Robot Game Scores",
-                tag=f'{tourn}',
-                tag_color="white",
-                color="white",
-            )
-            dataframes[division] = pd.read_excel(
-                this_ojs_filename,
-                sheet_name="Robot Game Scores",
-                header=0,
-                usecols=[
-                    "Team Number",
-                    "Team Name",
-                    "Robot Game 1 Score",
-                    "Robot Game 2 Score",
-                    "Robot Game 3 Score",
-                    "Highest Robot Game Score",
-                ],
-            )
-            print(
-                "There should be no errors or warnings. All rows below should have team data.\n"
-                "Robot game scores should be all NaN\n"
-                "Award and Advance? should be all NaN\n",
-                "All team numbers should be integers and there should not be "
-                "any team names NaN\n"
-                "Highest Robot Game Score should be all zero",
-                tag=f'{tourn}',
-                tag_color="white",
-                color="white",
-            )
-            print(dataframes[division])
-    except Exception as e:
+    for division in divlist:
+        this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
+        dataframes[division] = open_dataframe(this_ojs_filename, "Robot Game Scores", division, [
+                "Team Number",
+                "Team Name",
+                "Robot Game 1 Score",
+                "Robot Game 2 Score",
+                "Robot Game 3 Score",
+                "Highest Robot Game Score",
+            ], 0)
+
         print(
-            f"There was an error reading the OJS spreadsheet {this_ojs_filename}",
+            "There should be no errors or warnings. All rows below should have team data.\n"
+            "Robot game scores should be all NaN\n"
+            "Award and Advance? should be all NaN\n",
+            "All team numbers should be integers and there should not be "
+            "any team names NaN\n"
+            "Highest Robot Game Score should be all zero",
             tag=f'{tourn}',
-            tag_color="red",
-            color="red",
+            tag_color="white",
+            color="white",
         )
-        print(f"The error message was {e}", tag=f'{tourn}', tag_color="red", color="red")
-        input("Press enter to quit...")
-        sys.exit(1)
+        print(
+            f"{division} dataframe for Robot Game Scores",
+            tag=f'{tourn}',
+            tag_color="yellow",
+            color="yellow",
+        )
+        print(dataframes[division])
 
     check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
     check_column_for_null_values(dataframes[division], division, ["Robot Game 1 Score", "Robot Game 2 Score", "Robot Game 3 Score"])
@@ -430,69 +427,274 @@ def run_checks(d):
     print(
         f"Now checking the Innovation Project Input worksheet",
         tag=f'{tourn}',
-        tag_color="white",
-        color="white",
+        tag_color="yellow",
+        color="yellow",
     )
-    try:
-        for division in divlist:
-            this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
+    for division in divlist:
+        this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
+        dataframes[division] = open_dataframe(this_ojs_filename, "Innovation Project Input", division, [
+                "Team Number",
+                "Team Name",
+                "Identify - Define",
+                "Identify - Research (CV)",
+                "Design - Plan",
+                "Design - Teamwork (CV)",
+                "Create - Innovation (CV)",
+                "Create - Model",
+                "Iterate - Sharing",
+                "Iterate - Improvement",
+                "Communicate - Impact (CV)",
+                "Communicate - Fun (CV)",
+                "Innovation Project Score",
+                "Innovation Project Rank",
+            ], 0)
+
+        print(
+            "There should be no errors or warnings. All rows below should have team data.\n"
+            "Innovation Project scores should be all NaN\n"
+            "All team numbers should be integers and there should not be "
+            "any team names NaN\n",
+            tag=f'{tourn}',
+            tag_color="white",
+            color="white",
+        )
+        print(
+            f"{division} dataframe for Innovation Project",
+            tag=f'{tourn}',
+            tag_color="yellow",
+            color="yellow",
+        )
+        print(dataframes[division])
+        check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
+        check_column_for_null_values(dataframes[division], division, [
+                "Identify - Define",
+                "Identify - Research (CV)",
+                "Design - Plan",
+                "Design - Teamwork (CV)",
+                "Create - Innovation (CV)",
+                "Create - Model",
+                "Iterate - Sharing",
+                "Iterate - Improvement",
+                "Communicate - Impact (CV)",
+                "Communicate - Fun (CV)",
+                "Innovation Project Rank",
+            ])
+        check_column_for_valid_values(dataframes[division], division, 0, ["Innovation Project Score"])
+
+
+
+#### ROBOT DESIGN
+
+    print(
+        f"Now checking the Robot Design Input worksheet",
+        tag=f'{tourn}',
+        tag_color="yellow",
+        color="yellow",
+    )
+    for division in divlist:
+        this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
+        dataframes[division] = open_dataframe(this_ojs_filename, "Robot Design Input", division, [
+                "Team Number",
+                "Team Name",
+                "Identify - Strategy",
+                "Identify - Research (CV)",
+                "Design - Ideas (CV)",
+                "Design - Building/Coding",
+                "Create - Attachments",
+                "Create - Code/ Sensors",
+                "Iterate - Testing",
+                "Iterate - Improvements (CV)",
+                "Communicate - Impact (CV)",
+                "Communicate - Fun (CV)",
+                "Robot Design Score",
+                "Robot Design Rank",
+            ], 0)
+
+        print(
+            "There should be no errors or warnings. All rows below should have team data.\n"
+            "Robot Design scores should be all NaN\n"
+            "All team numbers should be integers and there should not be "
+            "any team names NaN\n",
+            tag=f'{tourn}',
+            tag_color="white",
+            color="white",
+        )
+        print(
+            f"{division} dataframe for Robot Design",
+            tag=f'{tourn}',
+            tag_color="yellow",
+            color="yellow",
+        )
+        print(dataframes[division])
+        check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
+        check_column_for_null_values(dataframes[division], division, [
+                "Identify - Strategy",
+                "Identify - Research (CV)",
+                "Design - Ideas (CV)",
+                "Design - Building/Coding",
+                "Create - Attachments",
+                "Create - Code/ Sensors",
+                "Iterate - Testing",
+                "Iterate - Improvements (CV)",
+                "Communicate - Impact (CV)",
+                "Communicate - Fun (CV)",
+                "Robot Design Rank",
+            ])
+        check_column_for_valid_values(dataframes[division], division, 0, ["Robot Design Score"])
+
+#### CORE VALUES
+
+    print(
+        f"Now checking the Core Values Input worksheet",
+        tag=f'{tourn}',
+        tag_color="yellow",
+        color="yellow",
+    )
+    for division in divlist:
+        this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
+        dataframes[division] = open_dataframe(this_ojs_filename, "Core Values Input", division, [
+                "Team Number",
+                "Team Name",
+                "Identify - Research (CV-IP)",
+                "Design - Teamwork (CV-IP)",
+                "Create - Innovation (CV-IP)",
+                "Communicate - Impact (CV-IP)",
+                "Communicate - Fun (CV-IP)",
+                "Identify - Research (CV-RD)",
+                "Design - Ideas (CV-RD)",
+                "Iterate - Improvements (CV-RD)",
+                "Communicate - Impact (CV-RD)",
+                "Communicate - Fun (CV-RD)",
+                "Gracious Professionalism 1",
+                "Gracious Professionalism 2",
+                "Gracious Professionalism 3",
+                "Gracious Professionalism Total",
+                "Gracious Professionalism Score",
+                "Core Values Score",
+                "Core Values Rank",
+            ], 0)
+
+        print(
+            "There should be no errors or warnings. All rows below should have team data.\n"
+            "Core Values scores should be all NaN\n"
+            "All team numbers should be integers and there should not be "
+            "any team names NaN\n",
+            tag=f'{tourn}',
+            tag_color="white",
+            color="white",
+        )
+        print(
+            f"{division} dataframe for Core Values",
+            tag=f'{tourn}',
+            tag_color="yellow",
+            color="yellow",
+        )
+        print(dataframes[division])
+        check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
+        check_column_for_null_values(dataframes[division], division, [
+                "Gracious Professionalism 1",
+                "Gracious Professionalism 2",
+                "Gracious Professionalism 3",
+                "Gracious Professionalism Score",
+                "Core Values Rank",
+            ])
+        check_column_for_valid_values(dataframes[division], division, 0, [
+                "Identify - Research (CV-IP)",
+                "Design - Teamwork (CV-IP)",
+                "Create - Innovation (CV-IP)",
+                "Communicate - Impact (CV-IP)",
+                "Communicate - Fun (CV-IP)",
+                "Identify - Research (CV-RD)",
+                "Design - Ideas (CV-RD)",
+                "Iterate - Improvements (CV-RD)",
+                "Communicate - Impact (CV-RD)",
+                "Communicate - Fun (CV-RD)",
+                "Gracious Professionalism Total",
+                "Core Values Score",
+            ])
+
+#### AWARD LIST
+
+    print(
+        f"Now checking the AwardList worksheet",
+        tag=f'{tourn}',
+        tag_color="yellow",
+        color="yellow",
+    )
+    for division in divlist:
+        this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
+        dataframes[division] = open_dataframe(this_ojs_filename, "AwardList", division, [
+                "Award",
+            ], 0)
+
+        print(
+            "There should be no errors or warnings. All judged awards for the tournament should be listed.",
+            tag=f'{tourn}',
+            tag_color="white",
+            color="white",
+        )
+        print(
+            f"{division} dataframe for AwardList",
+            tag=f'{tourn}',
+            tag_color="yellow",
+            color="yellow",
+        )
+        print(dataframes[division])
+        if len(dataframes[division]) < 4:
             print(
-                f"Opening {this_ojs_filename} to read {division} Robot Game Scores",
+                f"{division} WARNING Award List is less than 4, indicating a possible mistake",
                 tag=f'{tourn}',
-                tag_color="white",
-                color="white",
-            )
-            dataframes[division] = pd.read_excel(
-                this_ojs_filename,
-                sheet_name="Innovation Project Input",
-                header=0,
-                usecols=[
-                    "Team Number",
-                    "Team Name",
-                    "Identify - Define",
-                    "Identify - Research (CV)",
-                    "Design - Plan",
-                    "Design - Teamwork (CV)",
-                    "Create - Innovation (CV)",
-                    "Create - Model",
-                    "Iterate - Sharing",
-                    "Iterate - Improvement",
-                    "Communicate - Impact (CV)",
-                    "Communicate - Fun (CV)",
-                    "Innovation Project Score",
-                    "Innovation Project Rank",
-                ],
+                tag_color="red",
+                color="red",
             )
 
-            print(
-                "There should be no errors or warnings. All rows below should have team data.\n"
-                "Innovation Project scores should be all NaN\n"
-                "All team numbers should be integers and there should not be "
-                "any team names NaN\n"
-                "Highest Robot Game Score should be all zero",
-                tag=f'{tourn}',
-                tag_color="white",
-                color="white",
-            )
-            print(dataframes[division])
-            check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
-            check_column_for_null_values(dataframes[division], division, [
-                    "Identify - Define",
-                    "Identify - Research (CV)",
-                    "Design - Plan",
-                    "Design - Teamwork (CV)",
-                    "Create - Innovation (CV)",
-                    "Create - Model",
-                    "Iterate - Sharing",
-                    "Iterate - Improvement",
-                    "Communicate - Impact (CV)",
-                    "Communicate - Fun (CV)",
-                    "Innovation Project Rank",
-                ])
-    except Exception as e:
-        print(f"There was an error {e}", tag=f'{tourn}', tag_color="red", color="red")
-        input("Press enter to quit...")
-        sys.exit(1)
+#### META
+
+    print(
+        f"Now checking the Meta worksheet",
+        tag=f'{tourn}',
+        tag_color="yellow",
+        color="yellow",
+    )
+    for division in divlist:
+        this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
+        dataframes[division] = open_dataframe(this_ojs_filename, "Meta", division, [
+                "Key", "Value"
+            ], 0)
+
+        print(
+            "There should be no errors or warnings.",
+            tag=f'{tourn}',
+            tag_color="white",
+            color="white",
+        )
+        print(
+            f"{division} dataframe for Meta",
+            tag=f'{tourn}',
+            tag_color="yellow",
+            color="yellow",
+        )
+        print(dataframes[division])
+
+###### Workbook Protection
+    for division in divlist:
+        this_ojs_filename = d + "\\" + base_file_name + division + ".xlsm"
+        workbook: Workbook = load_workbook(this_ojs_filename)
+        print(f'{this_ojs_filename} protection')
+        for ws in workbook.worksheets:
+            if ws.protection.sheet:
+                print(f'{ws} is protected')
+            else:
+                print(
+                    f"{this_ojs_filename} {ws} is not protected",
+                    tag='ERROR',
+                    tag_color="red",
+                    color="red",
+                )
+                input("Press enter to quit...")
+                sys.exit(1)
+
+
 
 
 
