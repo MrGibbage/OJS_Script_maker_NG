@@ -28,7 +28,7 @@ def open_dataframe(ojsfile: str, sheetname: str, division: str, cols: list[str],
             ojsfile,
             sheet_name=sheetname,
             header=header_row,
-            # usecols=cols,
+            usecols=cols,
         )
         print(dataframe)
         return dataframe
@@ -674,7 +674,15 @@ def run_checks(d):
             tag_color="yellow",
             color="yellow",
         )
-        print(dataframes[division])
+        if len(dataframes[division]) != 13:
+            print(
+                f"{division} does not seem to have the right keys entered",
+                tag=f'{tourn}',
+                tag_color="red",
+                color="red",
+            )
+            input("Press enter to quit...")
+            sys.exit(1)
 
 ###### Workbook Protection
     for division in divlist:
@@ -693,6 +701,17 @@ def run_checks(d):
                 )
                 input("Press enter to quit...")
                 sys.exit(1)
+        
+        tapi_sheet = workbook["Team and Program Information"]
+        if tapi_sheet.cell(row=1, column=9).value is not None:
+            print(
+                f"{division} Password entered on the Team and Program Information worksheet: {this_ojs_filename}",
+                tag=f'{tourn}',
+                tag_color="red",
+                color="red",
+            )
+            input("Press enter to quit...")
+            sys.exit(1)
 
 
 
