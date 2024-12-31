@@ -20,7 +20,7 @@ Macros are used to copy the team numbers and names to the other sheets
 Protect and unprotext the workbooks
 
 Instructions:
-Close the repository
+Clone the repository
 Optional: If you want to be able to edit the python files, using VS code open the repository and build a python environment. Be sure to include the requirements from requirements.txt
 Within the calendar year folder, such as 2024, run the build-tournament-folders (either .py or .exe) program
 Within each tournament, update the OJS by entering the password (ask skip for instructions on how to do that, but it isn't particularly secure or hard to reverse engineer). After entering the password, use the "Update Teams" macro from the FLL toolbar. Optionally update the judging pod information. Then lock the worksheet from the FLL toolbar. Then use the check-setup program to validate the files.
