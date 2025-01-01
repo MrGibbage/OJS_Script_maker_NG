@@ -26,6 +26,6 @@ Within the calendar year folder, such as 2024, run the build-tournament-folders 
 Within each tournament, update the OJS by entering the password (ask skip for instructions on how to do that, but it isn't particularly secure or hard to reverse engineer). After entering the password, use the "Update Teams" macro from the FLL toolbar. Optionally update the judging pod information. Then lock the worksheet from the FLL toolbar. Then use the check-setup program to validate the files.
 Zip up each folder and send to the judge advisors
 
-**Judge Advisor Instructions**
+# Judge Advisor Instructions
 Unzip the zip file to some location of your choice. On windows, common places are your desktop and your Documents folder.
 You will either have one or two OJS files. One for each division. Open one of the OJS files. The spreadsheet has embedded macros, and your computer security will probably put up a warning. On tournament day, you will not need any macros, but for training, let's go ahead and fill in some random scores. Look at the toolbar at the top and choose the FLL Logo. One of the options is to fill the OJS with random scores. Don't worry, no matter how much you mess with the OJS files, you have a backup in your email that you can always go back to. Each of the worksheets should have all of the team numbers and names populated, along with their randomly generated scores. You will see that a lot of the cells are locked so that you can't edit them, but there are cells that are unlocked for the team scores.
