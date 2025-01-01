@@ -162,6 +162,39 @@ def set_up_award_worksheet(tournament:pd.Series, judge_awards: int):
         divawards.drop(0, inplace=True)
         divawards.drop(1, inplace=True)
         divawards.drop(divawards[divawards["Award"] == "ADV"].index, inplace=True)
+        print(divawards)
+        rg_awards: pd.DataFrame = divawards[(divawards["Award"].str.startswith("RG")) & (divawards['Count'] == 1)]
+        print(rg_awards)
+
+        # Robot Game
+        if tournament[d + "_OJS"] is None:
+            print(f"Nothing for tournament[{d}]")
+            continue
+
+        if len(rg_awards.index) > 0:
+            print("Looking for robot game awards")
+            ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
+            ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
+            ws = ojs_book['AwardList']
+            table: Table = ws.tables["RobotGameAwards"]
+            table_range: str = table.ref 
+            print(f"table_range: {table_range}")
+            start_cell = table_range.split(':')[0]
+            coords = coordinate_from_string(start_cell)
+            start_col = column_index_from_string(coords[0])
+            # start_index = divassignees.index[0]
+            table.ref = table.ref[:-1] + str(len(rg_awards) + 1)
+            next_row = 2
+            for i, row in rg_awards.iterrows():
+                print(f'New row, looking for RG {row}')
+                award = row['Award'].replace("RG", "Robot Game ")
+                award = award.replace("1", "1st Place").replace("2", "2nd Place").replace("3", "3rd Place")
+                if award[:2] == "Ro" and row['Count'] == 1:
+                    ws.cell(row=next_row, column=start_col).value = award
+                    print(f"Adding the robot game award: {award} to cell(row = {next_row}, column = {start_col})")
+                    next_row = next_row + 1
+
+        # Other judged awards
         divawards.drop(divawards[divawards["Award"] == "RG1"].index, inplace=True)
         divawards.drop(divawards[divawards["Award"] == "RG2"].index, inplace=True)
         divawards.drop(divawards[divawards["Award"] == "RG3"].index, inplace=True)
@@ -170,9 +203,9 @@ def set_up_award_worksheet(tournament:pd.Series, judge_awards: int):
         print(divawards)
 
         if len(divawards.index) > 0:
-            ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
-            ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
-            ws = ojs_book['AwardList']
+            # ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
+            # ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
+            # ws = ojs_book['AwardList']
             table: Table = ws.tables["AwardList"]
             table_range: str = table.ref # should return a string A1:B2
             start_cell = table_range.split(':')[0] # should return 'A1'
