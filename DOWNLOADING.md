@@ -4,25 +4,27 @@ Note that many computers will block execution of exe files downloaded from the i
 
 Step one. Convince your browser that you want to download the file.
 
+Step one
+
 ![Step 1](images/download1.png)
 
-Step one
+Step two
 
 ![Step 2](images/download2.png)
 
-Step two
+Step three
 
 ![Step 3](images/download3.png)
 
-Step three
 
 Once you the file downloaded and moved to where you want it, you then have to convince Windows you want to run it. In windows, to UNBLOCK an exe file, you simply have to right-click on the file, choose "Properties", and then check the "Unblock" setting.
 
+Step one
+
 ![Step 1](images/properties1.png)
 
-Step one
+Step two
 
 ![Step 2](images/properties2.png)
 
-Step two
 
