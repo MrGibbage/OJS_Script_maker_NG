@@ -12,18 +12,18 @@ Step one. Convince your browser that you want to download the file.
 
 ![Step 2](images/download2.png)
 
-3: Click on "Show More", then click on Keep the file
+3: Click on "Show More", then click on "Keep Anyway"
 
 ![Step 3](images/download3.png)
 
 
 Once you the file downloaded and moved to where you want it, you then have to convince Windows you want to run it. In windows, to UNBLOCK an exe file, you simply have to right-click on the file, choose "Properties", and then check the "Unblock" setting.
 
-Step one
+1: Right click on the exe file. Choose Properties at the bottom of the menu
 
 ![Step 1](images/properties1.png)
 
-Step two
+2: Click on "Unblock"
 
 ![Step 2](images/properties2.png)
 
