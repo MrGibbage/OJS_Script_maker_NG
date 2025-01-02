@@ -8,11 +8,11 @@ Step one. Convince your browser that you want to download the file.
 
 ![Step 1](images/download1.png)
 
-2: Hover over the text and look for the three dots. Click on that.
+2: Hover over the text and look for the three dots. Click on that, and choose "Keep"
 
 ![Step 2](images/download2.png)
 
-3:
+3: Click on "Show More", then click on Keep the file
 
 ![Step 3](images/download3.png)
 
