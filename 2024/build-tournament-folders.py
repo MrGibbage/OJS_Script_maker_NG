@@ -214,7 +214,7 @@ def set_up_award_worksheet(tournament:pd.Series, judge_awards: int):
             # start_index = divassignees.index[0]
             table.ref = table.ref[:-1] + str(len(divawards) + 1 + judge_awards)
             for i, row in divawards.iterrows():
-                award = row['Award'].replace("Champ", "Champion ").replace("RD", "Robot Design ").replace("CV", "Core Values ").replace("RG", "Robot Game " ).replace("IP", "Innovation Project ")
+                award = row['Award'].replace("Champ", "Champions ").replace("RD", "Robot Design ").replace("CV", "Core Values ").replace("RG", "Robot Game " ).replace("IP", "Innovation Project ")
                 award = award.replace("1", "1st Place").replace("2", "2nd Place").replace("3", "3rd Place")
                 ws.cell(row=i + 2, column=start_col).value = award
             next_row = i + 1
@@ -233,7 +233,7 @@ def set_up_meta_worksheet(tournament:pd.Series, yr: int, seasonName: str):
             ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
             print(f'Loading ojs workbook {ojsfile}')
             ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
-            scriptfile = str(yr) + "-" + seasonName + "-" + tournament["Short Name"] + "-" + d + "-script.html"
+            scriptfile = str(yr) + "-" + seasonName + "-" + tournament["Short Name"] + "-script.html"
             divawards: pd.DataFrame = dfAwards[(dfAwards["Tournament"] == tournament["Short Name"]) & (dfAwards["Div"] == d)]
             divawards = divawards.transpose()
             divawards = divawards.reset_index()

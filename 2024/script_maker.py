@@ -1,12 +1,20 @@
 # pip install pandas
 import pandas as pd
 
+from openpyxl import load_workbook
+from openpyxl.utils.cell import column_index_from_string, get_column_letter, coordinate_from_string
+from openpyxl.worksheet.table import Table
+
 # pip install pyyaml
 import yaml
 import warnings
 
+import os, sys, re, glob
+
 # pip install Jinja2
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+from typing import List, Dict
 
 # To create windows exe executable, run
 # .venv\Scripts\pyinstaller.exe -F script_maker.py
@@ -14,34 +22,61 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 # folder. Just copy it up to the project folder.
 # Double-click to run.
 
+def read_excel_table(sheet, table_name):
+    """
+    This function will read an Excel table
+    and return a tuple of columns and data
+
+    This function assumes that tables have column headers
+    :param sheet: the sheet
+    :param table_name: the name of the table
+    :return: columns (list) and data (dict)
+    """
+    table = sheet.tables[table_name]
+    table_range = table.ref
+
+    table_head = sheet[table_range][0]
+    table_data = sheet[table_range][1:]
+
+    columns = [column.value for column in table_head]
+    data = {column: [] for column in columns}
+
+    for row in table_data:
+        row_val = [cell.value for cell in row]
+        for key, val in zip(columns, row_val):
+            data[key].append(val)
+
+    return columns, data
+
 print("Building Closing Ceremony script")
 
-templateLoader = FileSystemLoader(searchpath="./")
+templateLoader = FileSystemLoader(searchpath="2024/")
 templateEnv = Environment(loader=templateLoader)
-TEMPLATE_FILE = "script_template-2MC.html.jinja"
+TEMPLATE_FILE = "script_template.html.jinja"
 template = templateEnv.get_template(TEMPLATE_FILE)
 
 warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
 
-yaml_data_file = "meta.yaml"
-
 ordinals = ["1st", "2nd", "3rd", "4th", "5th"]
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
-print("Opening yaml data file: " + yaml_data_file)
-with open(yaml_data_file) as f:
-    dict = yaml.load(f, Loader=yaml.FullLoader)
+# print("Opening yaml data file: " + yaml_data_file)
+# with open(yaml_data_file) as f:
+#     dict = yaml.load(f, Loader=yaml.FullLoader)
 
 awards = {
+    "Robot Game": "",
     "Champions": "",
     "Innovation Project": "",
     "Robot Design": "",
     "Core Values": "",
+    "Judges": "",
 }
 rg_html = {}
 dataframes = {}
 # divAwards key will be 1 and/or 2, and the value will be the awardHtml dictionaries
 # yes, it is a dictionary of dictionaries
-divAwards = {}
+divAwards: Dict[int, Dict[str, str]] = {}
 divAwards[1] = {}
 divAwards[2] = {} 
 # awardHtml key will be the award name, and the values will be the html
@@ -49,67 +84,52 @@ awardHtml = {}
 advancingDf = {}
 advancingHtml = {}
 awardCounts = {}
+judgesAwardDf = {}
+judgesAwardHtml = {}
+judgesAwardTotalCount = 0
 
 divisions = [1, 2]
+for award in awards:
+    for div in divisions:
+        divAwards[div][award] = ''
+
 removing = []
-for div in divisions:
-    if dict["div" + str(div) + "_ojs_file"] is not None:
-        dataframes[div] = pd.read_excel(
-            dict["div" + str(div) + "_ojs_file"],
-            sheet_name="Results and Rankings",
-            header=1,
-            usecols=[
-                "Team Number",
-                "Team Name",
-                "Max Robot Game Score",
-                "Robot Game Rank",
-                "Award",
-                "Advance?",
-            ],
-        )
-    else:
-        # make a list of the elements to remove
-        # I can't just remove the element from divisions[] while iterating
-        # on it because the loops will end early
-        removing.append(div)
-        rg_html[div] = ""
-        awardHtml[div] = ""
-        divAwards[div]["Robot Design"] = ""
-        divAwards[div]["Innovation Project"] = ""
-        divAwards[div]["Core Values"] = ""
-        divAwards[div]["Champions"] = ""
-        advancingHtml[div] = ""
+if len(glob.glob(f"{dir_path}\\~*.xlsm")) > 0:
+    print("Found temporary file(s) indicating that you have one or more spreadsheets open in Excel. Please close Excel and retry.")
+    input("Press enter to quit...")
+    sys.exit(1)
+directory_list: list[str] = glob.glob(f"{dir_path}\\*div*.xlsm")
+print(directory_list)
 
 for award in awards:
     awardCounts[award] = 0
 
-# now that we are done looping over the divisions, remove any items
-# that were marked for deletion
-# print(removing)
-print("We have these divisions: " + str(divisions))
-for item in removing:
-    divisions.remove(item)
-print("Get the top robot game scores")
-# print(divisions)
-# Robot Game
-for div in divisions:
+for tourn_filename in directory_list:
+    regex: str = r"([0-9]{4}-vadc-fll-challenge-.*)(-ojs-)(.*)-(div[1,2])(.xlsm)$"
+    # checking the file name for the division. The filename includes the path
+    # so remove the path by using the length of dir_path
+    m0 = re.search(regex, tourn_filename[len(dir_path) + 1:])
+    div = int(m0.group(4)[-1])
+    print(f"Division {div}")
+
+    book = load_workbook(tourn_filename, data_only=True)
+    ws = book['Meta']
+    columns, data = read_excel_table(ws, 'Meta')
+    dfMeta = pd.DataFrame(data=data, columns=["Key", "Value"])
+    for award in awards:
+        awardCounts[award] = dfMeta.loc[dfMeta['Key'] == award, 'Value'].values[0]
+    print(awardCounts)
+    ws = book["Results and Rankings"]
+    columns, data = read_excel_table(ws, 'TournamentData')
+    dfRankings = pd.DataFrame(data=data, columns=columns)
+    print(dfRankings)
+
+    # Robot Game
     rg_html[div] = ""
-    print("Getting top scores for division " + str(div))
-    for i in reversed(range(int(dict["Division " + str(div) + " Robot Game"]))):
-        print(ordinals[i] + " Place")
-        teamNum = int(
-            dataframes[div].loc[
-                dataframes[div]["Robot Game Rank"] == i + 1, "Team Number"
-            ].iloc[0]
-        )
-        teamName = dataframes[div].loc[
-            dataframes[div]["Robot Game Rank"] == i + 1, "Team Name"
-        ].iloc[0]
-        score = int(
-            dataframes[div].loc[
-                dataframes[div]["Robot Game Rank"] == i + 1, "Max Robot Game Score"
-            ].iloc[0]
-        )
+    for i in reversed(range(awardCounts["Robot Game"])):
+        teamNum = dfRankings.loc[dfRankings['Robot Game Rank'] == i + 1, 'Team Number'].values[0]
+        teamName = dfRankings.loc[dfRankings['Robot Game Rank'] == i + 1, 'Team Name'].values[0]
+        score = int(dfRankings.loc[dfRankings['Robot Game Rank'] == i + 1, 'Max Robot Game Score'].values[0])
         rg_html[div] += (
             "<p>With a score of "
             + str(score)
@@ -121,29 +141,18 @@ for div in divisions:
             + teamName
             + "</p>\n"
         )
-
-# print(rg_html)
-# Judged awards
-for div in divisions:
-    divAwards[div] = {}
-    print("Getting awards for division " + str(div))
-    for award in awards.keys():
-        print("Getting the " + award + " award")
-        divAwards[div][award] = ""
-        awardCounts[award] += int(dict["Division " + str(div) + " " + award])
-        for i in reversed(range(int(dict["Division " + str(div) + " " + award]))):
-            # divAwards[div][award] = ""
-            print(award + " " + ordinals[i] + " Place")
-            teamNum = int(
-                dataframes[div].loc[
-                    dataframes[div]["Award"] == award + " " + ordinals[i] + " Place",
-                    "Team Number",
-                ].iloc[0]
-            )
-            teamName = dataframes[div].loc[
-                dataframes[div]["Award"] == award + " " + ordinals[i] + " Place",
-                "Team Name",
-            ].iloc[0]
+    
+    # Judged awards
+    for award in awards:
+        print(award)
+        if award == "Robot Game" or award == "Judges":
+            continue
+        for i in reversed(range(awardCounts[award])):
+            thisAward = award + " " + ordinals[i] + " Place"
+            print(f'Division {div}, {thisAward}')
+            print(dfRankings.loc[dfRankings['Award'] == thisAward, 'Team Number'])
+            teamNum = dfRankings.loc[dfRankings['Award'] == thisAward, 'Team Number'].values[0]
+            teamName = dfRankings.loc[dfRankings['Award'] == thisAward, 'Team Name'].values[0]
             thisText = (
                 "<p>The Division " + str(div) + " "
                 + ordinals[i]
@@ -153,41 +162,46 @@ for div in divisions:
                 + teamName
                 + "</p>\n"
             )
-            divAwards[div][award] += thisText
+            divAwards[int(div)][award] += thisText
 
-print("Getting the advancing teams")
-# Advancing
-for div in divisions:
-    advancingDf[div] = dataframes[div][dataframes[div]["Advance?"] == "Yes"][
-        ["Team Number", "Team Name"]
-    ]
-
-# print(advancingDf[1])
-# print(advancingDf[2])
-
-# # From https://stackoverflow.com/questions/18695605/how-to-convert-a-dataframe-to-a-dictionary
-# div1advancingDict = div1advancingDf.set_index("Team Number").to_dict("dict")
-# div2advancingDict = div2advancingDf.set_index("Team Number").to_dict("dict")
-# # print(div2advancingDict["Team Name"])
-
-for div in divisions:
+    advancingDf[int(div)] = dfRankings[dfRankings["Advance?"] == "Yes"]
     advancingHtml[div] = ""
     # print(advancingDf[div])
-    for index, row in advancingDf[div].iterrows():
+    for index, row in advancingDf[int(div)].iterrows():
         try:
             teamNum = str(int(row['Team Number']))
         except:
             teamNum = ""
         teamName = row["Team Name"]
         advancingHtml[div] += "<p>(Div " + str(div) + ") Team number " + teamNum + ", " + teamName + "</p>\n"
+    print(f'Advancing: {advancingHtml[div]}')
 
-ja_count = int(dict["Judges Awards"])
+    print(dfRankings)
+    # Judges Awards
+    allowedJudgesAwardCount = dfMeta.loc[dfMeta['Key'] == "Judges", 'Value'].values[0]
+    judgesAwardDf[int(div)] = dfRankings[(dfRankings["Award"].str.startswith("Judges", na=False))]
+    print(judgesAwardDf)
+    judgesAwardHtml[div] = ""
+    # print(advancingDf[div])
+    for index, row in judgesAwardDf[int(div)].iterrows():
+        try:
+            teamNum = str(int(row['Team Number']))
+        except:
+            teamNum = ""
+        teamName = row["Team Name"]
+        judgesAwardHtml[div] += "<p>(Div " + str(div) + ") Team number " + teamNum + ", " + teamName + "</p>\n"
+        judgesAwardTotalCount += 1
+    
+print(f'Total number of judges awards: Div 1 = {len(judgesAwardDf[1])}; Div 2 = {len(judgesAwardDf[2])}; total = {judgesAwardTotalCount}')
+if judgesAwardTotalCount > allowedJudgesAwardCount:
+    print(f'You have selected too many judges awards. You are permitted a total of {allowedJudgesAwardCount} judges awards. If your tournament has two divisions, that total number is across both divisions. In other words, if you are allowed three judges awards, you could have three from Div 1 or two from Div 1 and one from Div 2, etc.')
+    input("Press enter to quit...")
+    sys.exit(1)
+
 
 print("Rendering the script")
 out_text = template.render(
-    tournament_name = dict["tournament_name"], 
-    volunteer_award_justification = dict["Volunteer Justification"],
-    volunteer_awardee_name = dict["Volunteer Awardee"],
+    tournament_name = dfMeta.loc[dfMeta['Key'] == "Tournament Long Name", 'Value'].values[0], 
     rg_div1_list = rg_html[1],
     rg_div2_list = rg_html[2],
     rd_div1_list = divAwards[1]["Robot Design"],
@@ -199,10 +213,9 @@ out_text = template.render(
     cv_div1_list = divAwards[1]["Core Values"],
     cv_div2_list = divAwards[2]["Core Values"],
     cv_this_them = "This team" if awardCounts["Core Values"] == 1 else "These teams",
-    ja_count = ja_count,
-    ja_list = str(dict["Judges Awardees"]),
-    ja_go_goes = "The Judges Awards go to teams" if ja_count > 1 else "The Judges Award goes to team",
-    special_guests = str(dict["Special Guests"]),
+    ja_count = judgesAwardTotalCount,
+    ja_list = judgesAwardHtml[1] + judgesAwardHtml[2],
+    ja_go_goes = "The Judges Awards go to teams" if judgesAwardTotalCount > 1 else "The Judges Award goes to team",
     champ_div1_list = divAwards[1]["Champions"],
     champ_div2_list = divAwards[2]["Champions"],
     adv_div1_list = advancingHtml[1],
@@ -210,10 +223,10 @@ out_text = template.render(
 )
 
 # print(out_text)
-with open(dict["complete_script_file"], "w") as fh:
+with open(dfMeta.loc[dfMeta['Key'] == "Completed Script File", 'Value'].values[0], "w") as fh:
     fh.write(out_text)
 
-print("All done! The script hase been saved as " + dict["complete_script_file"] + ".")
+print("All done! The script hase been saved as " + dfMeta.loc[dfMeta['Key'] == "Completed Script File", 'Value'].values[0] + ".")
 print("It is saved in the same folder with the other OJS files.")
 print("Double-click the script file to view it on this computer,")
 print("or email it to yourself and view it on a phone or tablet.")
