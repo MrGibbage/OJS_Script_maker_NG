@@ -28,7 +28,9 @@ Clone the repository, or download these five files to a folder of your choice:
 
 Note that many computers will block execution of exe files downloaded from the internet (very understandably). However, we need to be able to run the exe files included with this program. In windows, to UNBLOCK an exe file, you simply have to right-click on the file, choose "Properties", and then check the "Unblock" setting.
 ![alt text](images/properties1.png)
+
 ![alt text](images/properties2.png)
+
 Optional: If you want to be able to edit the python files, using VS code open the repository and build a python environment. Be sure to include the requirements from requirements.txt
 
 Within the calendar year folder, such as 2024, run the build-tournament-folders (either .py or .exe) program
