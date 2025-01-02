@@ -20,9 +20,16 @@ Macros are used to copy the team numbers and names to the other sheets and to pr
 
 # State Coordinator Instructions:
 Clone the repository
+
+Note that many computers will block execution of exe files downloaded from the internet (very understandably). However, we need to be able to run the exe files included with this program. In windows, to UNBLOCK an exe file, you simply have to right-click on the file, choose "Properties", and then check the "Unblock" setting.
+![alt text](images/properties1.png)
+![alt text](images/properties2.png)
 Optional: If you want to be able to edit the python files, using VS code open the repository and build a python environment. Be sure to include the requirements from requirements.txt
+
 Within the calendar year folder, such as 2024, run the build-tournament-folders (either .py or .exe) program
+
 Within each tournament, update the OJS by entering the password (ask skip for instructions on how to do that, but it isn't particularly secure or hard to reverse engineer). After entering the password, use the "Update Teams" macro from the FLL toolbar. Optionally update the judging pod information. Then lock the worksheet from the FLL toolbar. Then use the check-setup program to validate the files.
+
 Zip up each folder and send to the judge advisors
 
 # Judge Advisor Instructions
