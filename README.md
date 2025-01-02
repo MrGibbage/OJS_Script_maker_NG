@@ -28,11 +28,7 @@ Clone the repository, or download these five files to a folder of your choice:
 
 Or just grab [this zip file](2024/OJS_Manager.zip).
 
-Note that many computers will block execution of exe files downloaded from the internet (very understandably). However, we need to be able to run the exe files included with this program. In windows, to UNBLOCK an exe file, you simply have to right-click on the file, choose "Properties", and then check the "Unblock" setting.
-
-![alt text](images/properties1.png)
-
-![alt text](images/properties2.png)
+Note that downloading exe files is tricky and requires some manual intervention on your part. I have instructions [here](DOWNLOADING.md).
 
 Optional: If you want to be able to edit the python files, using VS code open the repository and build a python environment. Be sure to include the requirements from requirements.txt
 
