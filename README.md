@@ -15,9 +15,8 @@ Scripts and sample excel spreadsheets in here are used to prepare for VA-DC FLL 
 
 **script_template.html.jinja** is the template file for creating the closing ceremony script
 
-**2024-Qualifier-Template.xlsm** is the template file that is copied for each tournament OJS. It is a macro-enabled workbook, so be sure to enable macros when opening. Tournament Judge Advisors and Tournament Directors will probably not need to use the macros, so they can leave the macros disabled. There is however a macro that will fill the tables with random scores. This is useful for practicing and testing to see how the OJS works. The worksheets use password protection to lock down cells that will not need additional entries.
-Macros are used to copy the team numbers and names to the other sheets
-Protect and unprotext the workbooks
+**2024-Qualifier-Template.xlsm** is the template file that is copied for each tournament OJS. It is a macro-enabled workbook, so be sure to enable macros when opening. Tournament Judge Advisors and Tournament Directors will not need to use the macros on tournament day, so they can leave the macros disabled. There is however a macro that will fill the tables with random scores which does not require a password. This is useful for practicing and testing to see how the OJS works prior to tournament day. The worksheets use password protection to lock down cells that will not need additional entries.
+Macros are used to copy the team numbers and names to the other sheets and to protect and unprotect the workbooks
 
 # State Coordinator Instructions:
 Clone the repository
