@@ -19,7 +19,12 @@ Scripts and sample excel spreadsheets in here are used to prepare for VA-DC FLL 
 Macros are used to copy the team numbers and names to the other sheets and to protect and unprotect the workbooks
 
 # State Coordinator Instructions:
-Clone the repository
+Clone the repository, or download these five files to a folder of your choice:
+1. [2024-FLL-Qualifier-Tournaments.xlsx](2024/2024-FLL-Qualifier-Tournaments.xlsx)
+2. [2024-Qualifier-Template.xlsm](2024/2024-Qualifier-Template.xlsm)
+3. [build-tournament-folders.exe](2024/build-tournament-folders.exe)
+4. [script_maker.exe](2024/script_maker.exe)
+5. [script_template.html.jinja](2024/script_template.html.jinja)
 
 Note that many computers will block execution of exe files downloaded from the internet (very understandably). However, we need to be able to run the exe files included with this program. In windows, to UNBLOCK an exe file, you simply have to right-click on the file, choose "Properties", and then check the "Unblock" setting.
 ![alt text](images/properties1.png)
