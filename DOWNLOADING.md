@@ -4,15 +4,15 @@ Note that many computers will block execution of exe files downloaded from the i
 
 Step one. Convince your browser that you want to download the file.
 
-Step one: Look for this popup in the upper right of your screen.
+1: Look for this popup in the upper right of your screen.
 
 ![Step 1](images/download1.png)
 
-Step two
+2: Hover over the text and look for the three dots. Click on that.
 
 ![Step 2](images/download2.png)
 
-Step three
+3:
 
 ![Step 3](images/download3.png)
 
