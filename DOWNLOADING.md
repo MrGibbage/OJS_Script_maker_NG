@@ -4,7 +4,7 @@ Note that many computers will block execution of exe files downloaded from the i
 
 Step one. Convince your browser that you want to download the file.
 
-Step one
+Step one: Look for this popup in the upper right of your screen.
 
 ![Step 1](images/download1.png)
 
