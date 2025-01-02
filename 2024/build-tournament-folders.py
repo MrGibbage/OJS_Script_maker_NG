@@ -29,7 +29,11 @@ import warnings
 warnings.simplefilter(action='ignore', category=UserWarning)
 
 cwd: str = os.getcwd()
-dir_path = os.path.dirname(os.path.realpath(__file__))
+if getattr(sys, 'frozen', False):
+    dir_path = os.path.dirname(sys.executable)
+elif __file__:
+    dir_path = os.path.dirname(__file__)
+
 current_year: str = '2024'
 tournament_file: str = dir_path + '\\2024-FLL-Qualifier-Tournaments.xlsx'
 template_file: str = dir_path + '\\2024-Qualifier-Template.xlsm'

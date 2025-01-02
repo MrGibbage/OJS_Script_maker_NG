@@ -17,7 +17,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from typing import List, Dict
 
 # To create windows exe executable, run
-# .venv\Scripts\pyinstaller.exe -F script_maker.py
+# .venv\Scripts\pyinstaller.exe -F 2024\script_maker.py
 # in the project folder. The executable will be saved in the 'dist'
 # folder. Just copy it up to the project folder.
 # Double-click to run.
@@ -58,7 +58,10 @@ template = templateEnv.get_template(TEMPLATE_FILE)
 warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
 
 ordinals = ["1st", "2nd", "3rd", "4th", "5th"]
-dir_path = os.path.dirname(os.path.realpath(__file__))
+if getattr(sys, 'frozen', False):
+    dir_path = os.path.dirname(sys.executable)
+elif __file__:
+    dir_path = os.path.dirname(__file__)
 
 # print("Opening yaml data file: " + yaml_data_file)
 # with open(yaml_data_file) as f:
