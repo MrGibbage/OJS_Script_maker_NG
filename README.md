@@ -27,6 +27,7 @@ Clone the repository, or download these five files to a folder of your choice:
 5. [script_template.html.jinja](2024/script_template.html.jinja)
 
 Note that many computers will block execution of exe files downloaded from the internet (very understandably). However, we need to be able to run the exe files included with this program. In windows, to UNBLOCK an exe file, you simply have to right-click on the file, choose "Properties", and then check the "Unblock" setting.
+
 ![alt text](images/properties1.png)
 
 ![alt text](images/properties2.png)
