@@ -26,7 +26,7 @@ Clone the repository, or download these five files to a folder of your choice:
 4. [script_maker.exe](2024/script_maker.exe)
 5. [script_template.html.jinja](2024/script_template.html.jinja)
 
-Or just grab [the files from the] (releases).
+Or just grab [https://github.com/MrGibbage/OJS_Script_maker_NG/releases] (the files from the releases).
 
 Note that downloading exe files is tricky and requires some manual intervention on your part. I have instructions [here](DOWNLOADING.md).
 
