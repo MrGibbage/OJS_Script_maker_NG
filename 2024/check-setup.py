@@ -12,7 +12,18 @@ from openpyxl import load_workbook, Workbook
 # pip install print-color
 from print_color import print
 
-dir_path = os.path.dirname(os.path.realpath(__file__))
+# To create windows exe executable, run
+# .venv\Scripts\pyinstaller.exe -F 2024\check-setup.py
+# in the project folder. The executable will be saved in the 'dist'
+# folder. Just copy it up to the project folder.
+# Double-click to run.
+
+
+if getattr(sys, 'frozen', False):
+    dir_path = os.path.dirname(sys.executable)
+elif __file__:
+    dir_path = os.path.dirname(__file__)
+
 dataframes = {}
 base_file_name: str = ""
 
@@ -376,7 +387,8 @@ def run_checks(d):
     check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
     check_column_for_valid_values(dataframes[division], division, 0, ["Max Robot Game Score"])
     check_column_for_valid_values(dataframes[division], division, 1, ["Robot Game Rank"])
-    check_column_for_null_values(dataframes[division], division, ["Award", "Advance?"])
+    check_column_for_valid_values(dataframes[division], division, "No", ["Advance?"])
+    check_column_for_null_values(dataframes[division], division, ["Award"])
 
 
 #### ROBOT GAME SCORES
@@ -477,9 +489,9 @@ def run_checks(d):
                 "Iterate - Improvement",
                 "Communicate - Impact (CV)",
                 "Communicate - Fun (CV)",
-                "Innovation Project Rank",
             ])
         check_column_for_valid_values(dataframes[division], division, 0, ["Innovation Project Score"])
+        check_column_for_valid_values(dataframes[division], division, 1, ["Innovation Project Rank"])
 
 
 
@@ -538,9 +550,9 @@ def run_checks(d):
                 "Iterate - Improvements (CV)",
                 "Communicate - Impact (CV)",
                 "Communicate - Fun (CV)",
-                "Robot Design Rank",
             ])
         check_column_for_valid_values(dataframes[division], division, 0, ["Robot Design Score"])
+        check_column_for_valid_values(dataframes[division], division, 1, ["Robot Design Rank"])
 
 #### CORE VALUES
 
@@ -595,8 +607,6 @@ def run_checks(d):
                 "Gracious Professionalism 1",
                 "Gracious Professionalism 2",
                 "Gracious Professionalism 3",
-                "Gracious Professionalism Score",
-                "Core Values Rank",
             ])
         check_column_for_valid_values(dataframes[division], division, 0, [
                 "Identify - Research (CV-IP)",
@@ -609,9 +619,11 @@ def run_checks(d):
                 "Iterate - Improvements (CV-RD)",
                 "Communicate - Impact (CV-RD)",
                 "Communicate - Fun (CV-RD)",
+                "Gracious Professionalism Score",
                 "Gracious Professionalism Total",
                 "Core Values Score",
             ])
+        check_column_for_valid_values(dataframes[division], division, 1, ["Core Values Rank"])
 
 #### AWARD LIST
 
@@ -725,9 +737,22 @@ if tourn == "":
         print(directory)
         tourn = directory
         run_checks(dir_path + "\\tournaments\\" + directory)
+        f"Looks great! No problems detected in any tournaments",
+        tag=f'{tourn}',
+        tag_color="green",
+        color="green",
 else:
     d = dir_path + "\\tournaments\\" + tourn
     run_checks(d)
+
+    print(
+        f"Looks great! No problems detected in the {tourn} tournament",
+        tag=f'{tourn}',
+        tag_color="green",
+        color="green",
+    )
+    input("Press enter to quit...")
+    sys.exit(1)
 
 #
 # TODO
