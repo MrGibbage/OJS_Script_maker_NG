@@ -19,12 +19,13 @@ Scripts and sample excel spreadsheets in here are used to prepare for VA-DC FLL 
 Macros are used to copy the team numbers and names to the other sheets and to protect and unprotect the workbooks
 
 # State Coordinator Instructions:
-Clone the repository, or download these five files to a folder of your choice:
+Clone the repository, or download these six files to a folder of your choice:
 1. [2024-FLL-Qualifier-Tournaments.xlsx](2024/2024-FLL-Qualifier-Tournaments.xlsx)
 2. [2024-Qualifier-Template.xlsm](2024/2024-Qualifier-Template.xlsm)
 3. [build-tournament-folders.exe](2024/build-tournament-folders.exe)
 4. [script_maker.exe](2024/script_maker.exe)
 5. [script_template.html.jinja](2024/script_template.html.jinja)
+6. [check-setup.exe](2024/check-setup.exe)
 
 Or just grab [the files from the latest release ](https://github.com/MrGibbage/OJS_Script_maker_NG/releases).
 
@@ -32,9 +33,9 @@ Note that downloading exe files is tricky and requires some manual intervention 
 
 Optional: If you want to be able to edit the python files, using VS code open the repository and build a python environment. Be sure to include the requirements from requirements.txt
 
-Within the calendar year folder, such as 2024, run the build-tournament-folders (either .py or .exe) program
+If you cloned the repository, you will see a 2024 folder. Within that folder you will see all of the files for the 2024 season. If you just downloaded the files from here, you won't have a 2024 folder, but you will have all of the files you need. In either case, run the build-tournament-folders (either .py or .exe) program. You will see a new "tournaments" folder is created and folders within that for each tournament. Each tournament will have OJS files for each division at the tournament, the script_maker.exe file, and the script_template.html.jinja file which is the template for the closing ceremony script.
 
-Within each tournament, update the OJS by entering the password (ask skip for instructions on how to do that, but it isn't particularly secure or hard to reverse engineer). After entering the password, use the "Update Teams" macro from the FLL toolbar. Optionally update the judging pod information. Then lock the worksheet from the FLL toolbar. Then use the check-setup program to validate the files.
+Within each tournament, update the OJS by entering the password (ask skip for instructions on how to do that, but it isn't particularly secure or hard to reverse engineer). After entering the password, use the "Update Teams" macro from the FLL toolbar. Optionally update the judging pod information. Then lock the worksheet from the FLL toolbar. Then use the check-setup program to validate the files. If you just want to check the setup of one tournament, you can enter the name here. The name is the same as the tournament folder name, such as "Norfolk". Case is important so pay attention to that. Also note that none of the tournament folder have spaces in them, but do have underscores and dashes as needed.
 
 Zip up each folder and send to the judge advisors
 
