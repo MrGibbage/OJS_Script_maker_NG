@@ -166,6 +166,10 @@ def set_up_award_worksheet(tournament:pd.Series, judge_awards: int):
         divawards.drop(0, inplace=True)
         divawards.drop(1, inplace=True)
         divawards.drop(divawards[divawards["Award"] == "ADV"].index, inplace=True)
+        divawards.drop(divawards[divawards["Award"] == "JudgedAwards"].index, inplace=True)
+        divawards.drop(divawards[divawards["Award"] == "PerfAwards"].index, inplace=True)
+        divawards.drop(divawards[divawards["Award"] == "AwardTot"].index, inplace=True)
+		
         print(divawards)
         rg_awards: pd.DataFrame = divawards[(divawards["Award"].str.startswith("RG")) & (divawards['Count'] == 1)]
         print(rg_awards)
@@ -275,8 +279,12 @@ def set_up_meta_worksheet(tournament:pd.Series, yr: int, seasonName: str):
 # # # # # # # # # # # # # # # # # # # # #
 
 print("Checking to make sure files and folders are set up correctly")
+
+# Any files that are to be copied directly into each torunament folder should be added to this list
 extrafilelist: list[str] = [dir_path + "\\script_maker.exe", dir_path + "\\script_template.html.jinja"]
 ojsfilelist: list[str] = []
+
+# Make sure the extra files exist
 for filename in extrafilelist:
     try:
         if os.path.exists(filename):
@@ -301,8 +309,10 @@ try:
     ws = book['Tournaments']
     columns, data = read_excel_table(ws, 'TournamentList')
     dfTournaments = pd.DataFrame(data=data, columns=columns)
-    seasonYear: int = ws["B1"].value
-    seasonName: str = ws["B2"].value
+    ws = book['SeasonInfo']
+    columns, data = read_excel_table(ws, 'SeasonInfo')
+    seasonYear: int = ws["B2"].value
+    seasonName: str = ws["B3"].value
     print(seasonYear, seasonName)
 
     print("Getting awards")

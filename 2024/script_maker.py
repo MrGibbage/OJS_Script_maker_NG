@@ -15,6 +15,7 @@ import os, sys, re, glob
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from typing import List, Dict
+from print_color import print
 
 # To create windows exe executable, run
 # .venv\Scripts\pyinstaller.exe -F 2024\script_maker.py
@@ -90,6 +91,7 @@ awardCounts = {}
 judgesAwardDf = {}
 judgesAwardHtml = {}
 judgesAwardTotalCount = 0
+allowedAdvancingCount = [0, 0] #D1 is index 0
 
 divisions = [1, 2]
 for award in awards:
@@ -102,7 +104,18 @@ if len(glob.glob(f"{dir_path}\\~*.xlsm")) > 0:
     input("Press enter to quit...")
     sys.exit(1)
 directory_list: list[str] = glob.glob(f"{dir_path}\\*div*.xlsm")
+print(f'Using this directory: {dir_path}')
+print("Found these OJS files:")
 print(directory_list)
+if len(directory_list) ==0 or len(directory_list) > 2:
+    print(
+        f"Fatal error. There must be one or two OJS files in the directory. Found: {len(directory_list)}",
+        tag=f'error',
+        tag_color="red",
+        color="red",
+    )
+    input("Press enter to quit...")
+    sys.exit(1)
 
 for award in awards:
     awardCounts[award] = 0
@@ -125,14 +138,41 @@ for tourn_filename in directory_list:
     ws = book["Results and Rankings"]
     columns, data = read_excel_table(ws, 'TournamentData')
     dfRankings = pd.DataFrame(data=data, columns=columns)
+    print("Here is the Results and Rankings data")
     print(dfRankings)
 
     # Robot Game
+    try:
+        teamNum = dfRankings.loc[dfRankings['Robot Game Rank'] == 2, 'Team Number'].values[0]
+        print(teamNum)
+    except:
+        print(
+            f"Fatal error. I'm not seeing any scores. Have you filled out the OJS files and saved them to the right folder?",
+            tag=f'error',
+            tag_color="red",
+            color="red",
+        )
+        input("Press enter to quit...")
+        sys.exit(1)
+
+
     rg_html[div] = ""
     for i in reversed(range(awardCounts["Robot Game"])):
-        teamNum = dfRankings.loc[dfRankings['Robot Game Rank'] == i + 1, 'Team Number'].values[0]
-        teamName = dfRankings.loc[dfRankings['Robot Game Rank'] == i + 1, 'Team Name'].values[0]
-        score = int(dfRankings.loc[dfRankings['Robot Game Rank'] == i + 1, 'Max Robot Game Score'].values[0])
+        try:
+            teamNum = dfRankings.loc[dfRankings['Robot Game Rank'] == i + 1, 'Team Number'].values[0]
+            teamName = dfRankings.loc[dfRankings['Robot Game Rank'] == i + 1, 'Team Name'].values[0]
+            score = int(dfRankings.loc[dfRankings['Robot Game Rank'] == i + 1, 'Max Robot Game Score'].values[0])
+        except:
+            print(
+                f"Fatal error. I'm having problems reading the robot game scores. Have you filled them in? Have you saved the OJS to the correct folder?",
+                tag=f'error',
+                tag_color="red",
+                color="red",
+            )
+            print(dir_path)
+            print("All robot game ranks must be properly visible on the Results and Rankings spreadsheet. Have you filled in the scores on the Robot Game Scores worksheet?")
+            input("Press enter to quit...")
+            sys.exit(1)
         rg_html[div] += (
             "<p>With a score of "
             + str(score)
@@ -154,8 +194,20 @@ for tourn_filename in directory_list:
             thisAward = award + " " + ordinals[i] + " Place"
             print(f'Division {div}, {thisAward}')
             print(dfRankings.loc[dfRankings['Award'] == thisAward, 'Team Number'])
-            teamNum = dfRankings.loc[dfRankings['Award'] == thisAward, 'Team Number'].values[0]
-            teamName = dfRankings.loc[dfRankings['Award'] == thisAward, 'Team Name'].values[0]
+            try:
+                teamNum = dfRankings.loc[dfRankings['Award'] == thisAward, 'Team Number'].values[0]
+                teamName = dfRankings.loc[dfRankings['Award'] == thisAward, 'Team Name'].values[0]
+            except:
+                print(
+                    f"I'm having problems reading the required {thisAward} award for Division {div}. Have you filled it in? Have you saved the OJS to the correct folder?",
+                    tag=f'error',
+                    tag_color="red",
+                    color="red",
+                )
+                print(dir_path)
+                print("All required awards must be properly selected on the Results and Rankings spreadsheet")
+                input("Press enter to quit...")
+                sys.exit(1)
             thisText = (
                 "<p>The Division " + str(div) + " "
                 + ordinals[i]
@@ -167,7 +219,10 @@ for tourn_filename in directory_list:
             )
             divAwards[int(div)][award] += thisText
 
+    
+    # Advancing
     advancingDf[int(div)] = dfRankings[dfRankings["Advance?"] == "Yes"]
+    allowedAdvancingCount[int(div) - 1] = dfMeta.loc[dfMeta['Key'] == "Advancing", 'Value'].values[0]
     advancingHtml[div] = ""
     # print(advancingDf[div])
     for index, row in advancingDf[int(div)].iterrows():
@@ -182,8 +237,9 @@ for tourn_filename in directory_list:
     print(dfRankings)
     # Judges Awards
     allowedJudgesAwardCount = dfMeta.loc[dfMeta['Key'] == "Judges", 'Value'].values[0]
+    print(f'Tournament has {allowedJudgesAwardCount} judges awards available across both divisions')
     judgesAwardDf[int(div)] = dfRankings[(dfRankings["Award"].str.startswith("Judges", na=False))]
-    print(judgesAwardDf)
+
     judgesAwardHtml[div] = ""
     # print(advancingDf[div])
     for index, row in judgesAwardDf[int(div)].iterrows():
@@ -194,12 +250,120 @@ for tourn_filename in directory_list:
         teamName = row["Team Name"]
         judgesAwardHtml[div] += "<p>(Div " + str(div) + ") Team number " + teamNum + ", " + teamName + "</p>\n"
         judgesAwardTotalCount += 1
-    
-print(f'Total number of judges awards: Div 1 = {len(judgesAwardDf[1])}; Div 2 = {len(judgesAwardDf[2])}; total = {judgesAwardTotalCount}')
+
+    # Check for dupes in the awards
+    filtered_df = dfRankings.dropna(subset=['Award'])
+    filtered_df = filtered_df[['Team Number', 'Team Name', 'Award']]
+    duplicates = filtered_df.duplicated(subset=['Award'], keep=False)
+    duplicate_rows = filtered_df[duplicates]
+    if len(duplicate_rows) > 0:
+        print(
+            f'There are teams with duplicate awards',
+            tag=f'error',
+            tag_color="red",
+            color="red",
+        )
+        print(duplicate_rows)
+        input("Press enter to quit...")
+        sys.exit(1)
+
+
+# End of OJS loop
+# # # # # # # # # # # # # # # # # # # # #
+
+print(
+    f'All done collecting data from the OJS. Checking validity now.',
+    tag=f'OK',
+    tag_color="green",
+    color="green",
+)
+try: 
+    d1JudgesAwards = len(judgesAwardDf[1])
+except:
+    d1JudgesAwards = 0
+
+try: 
+    d2JudgesAwards = len(judgesAwardDf[2])
+except:
+    d2JudgesAwards = 0
+
+
+print(f'Total number of judges awards selected: Div 1 = {d1JudgesAwards}; Div 2 = {d2JudgesAwards}; total = {judgesAwardTotalCount}')
 if judgesAwardTotalCount > allowedJudgesAwardCount:
     print(f'You have selected too many judges awards. You are permitted a total of {allowedJudgesAwardCount} judges awards. If your tournament has two divisions, that total number is across both divisions. In other words, if you are allowed three judges awards, you could have three from Div 1 or two from Div 1 and one from Div 2, etc.')
     input("Press enter to quit...")
     sys.exit(1)
+
+if judgesAwardTotalCount < allowedJudgesAwardCount:
+    print(
+        f'You have selected fewer judges awards than allowed. You are permitted a total of {allowedJudgesAwardCount} judges awards.\nIf your tournament has two divisions, that total number is across both divisions.\nFor example, if you are allowed three judges awards, you could have all three from Div 1.\nOr you could have two from Div 1 and one from Div 2, etc.\n\nThis is not an error and you may continue building the script with fewer judges awards than permitted.',
+        tag=f'warning',
+        tag_color="red",
+        color="red",
+    )
+    try:
+        input("Press enter to continue. Press ctrl-c to quit...")
+    except:
+        print("\n\nStopped building the script. Please check that the OJS files are filled out correctly before trying to build the script again.")
+        sys.exit(0)
+
+# D1 Advancing checks
+try: 
+    d1Advancing = len(advancingDf[1])
+except:
+    d1Advancing = 0
+
+if d1Advancing < allowedAdvancingCount[0]:
+    print(
+        f'You have selected fewer advancing D1 teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[0]} advancing teams for division 1, but you have only selected {d1Advancing}.\n\nThis is not an error and you may continue building the script with fewer advancing teams than permitted.',
+        tag=f'warning',
+        tag_color="red",
+        color="red",
+    )
+    try:
+        input("Press enter to continue. Press ctrl-c to quit...")
+    except:
+        print("\n\nStopped building the script. Please check that the OJS files are filled out correctly before trying to build the script again.")
+        sys.exit(0)
+
+if d1Advancing > allowedAdvancingCount[0]:
+    print(
+        f'You have selected more advancing D1 teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[0]} advancing teams for division 1, but you have selected {d1Advancing}.\n\n',
+        tag=f'error',
+        tag_color="red",
+        color="red",
+    )
+    input("Press enter to continue. Press ctrl-c to quit...")
+    sys.exit(0)
+
+# D2 Advancing checks
+try: 
+    d2Advancing = len(advancingDf[2])
+except:
+    d2Advancing = 0
+
+if d2Advancing < allowedAdvancingCount[1]:
+    print(
+        f'You have selected fewer advancing D2 teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[1]} advancing teams for division 2, but you have only selected {d2Advancing}.\n\nThis is not an error and you may continue building the script with fewer advancing teams than permitted.',
+        tag=f'warning',
+        tag_color="red",
+        color="red",
+    )
+    try:
+        input("Press enter to continue. Press ctrl-c to quit...")
+    except:
+        print("\n\nStopped building the script. Please check that the OJS files are filled out correctly before trying to build the script again.")
+        sys.exit(0)
+
+if d2Advancing > allowedAdvancingCount[1]:
+    print(
+        f'You have selected more advancing D2 teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[1]} advancing teams for division 1, but you have selected {d2Advancing}.\n\n',
+        tag=f'error',
+        tag_color="red",
+        color="red",
+    )
+    input("Press enter to continue. Press ctrl-c to quit...")
+    sys.exit(0)
 
 
 print("Rendering the script")
