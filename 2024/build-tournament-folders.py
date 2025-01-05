@@ -123,6 +123,7 @@ def set_up_tapi_worksheet(tournament:pd.Series):
         print(f"Setting up Tournament Team and Program Information for {tournament["Short Name"]} {d}")
         divassignees: pd.DataFrame = dfAssignments[(dfAssignments["Tournament"] == tournament["Short Name"]) & (dfAssignments["Div"] == d)]
         print(divassignees)
+        print(f'There are {len(divassignees)} teams in this {d} {tournament["Short Name"]} tournament')
         if len(divassignees.index) > 0:
             try:
                 # print(divassignees)
@@ -135,7 +136,9 @@ def set_up_tapi_worksheet(tournament:pd.Series):
                 coords = coordinate_from_string(start_cell)
                 start_col = column_index_from_string(coords[0])
                 start_index = divassignees.index[0]
-                table.ref = table.ref[:-1] + str(len(divassignees) + 2)
+                colonPos = (table.ref).find(":")
+                print(f'About to resize the table {table.ref}, {table.ref[:colonPos]}, {re.sub(r'\d', '', table.ref[colonPos + 1])}, {str(len(divassignees) + 2)}')
+                table.ref = table.ref[:colonPos] + ":" + re.sub(r'\d', '', table.ref[colonPos + 1]) + str(len(divassignees) + 2)
                 for i, row in divassignees.iterrows():
                     # cell = f'{get_column_letter(start_col)}{i + 3 - start_index}'
                     # print(f'Cell: {cell}, setting value {row['Team #']}')
@@ -145,7 +148,7 @@ def set_up_tapi_worksheet(tournament:pd.Series):
                     ws.cell(row=i + 3 - start_index, column=start_col + 2).value = row['Coach Name']
 
                 # Save the workbook
-                # print('saving')
+                print(f'Saving workbook. OfficialTeamList ref: {table.ref}')
                 ojs_book.save(ojsfile)
                 # ojs_book.close()
             except Exception as e:
