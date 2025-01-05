@@ -91,6 +91,7 @@ awardCounts = {}
 judgesAwardDf = {}
 judgesAwardHtml = {}
 judgesAwardTotalCount = 0
+divJudgesAwards = [0, 0]
 allowedAdvancingCount = [0, 0] #D1 is index 0
 
 divisions = [1, 2]
@@ -217,15 +218,15 @@ for tourn_filename in directory_list:
                 + teamName
                 + "</p>\n"
             )
-            divAwards[int(div)][award] += thisText
+            divAwards[div][award] += thisText
 
     
     # Advancing
-    advancingDf[int(div)] = dfRankings[dfRankings["Advance?"] == "Yes"]
-    allowedAdvancingCount[int(div) - 1] = dfMeta.loc[dfMeta['Key'] == "Advancing", 'Value'].values[0]
+    advancingDf[div - 1] = dfRankings[dfRankings["Advance?"] == "Yes"]
+    allowedAdvancingCount[div - 1] = dfMeta.loc[dfMeta['Key'] == "Advancing", 'Value'].values[0]
     advancingHtml[div] = ""
     # print(advancingDf[div])
-    for index, row in advancingDf[int(div)].iterrows():
+    for index, row in advancingDf[div - 1].iterrows():
         try:
             teamNum = str(int(row['Team Number']))
         except:
@@ -238,11 +239,11 @@ for tourn_filename in directory_list:
     # Judges Awards
     allowedJudgesAwardCount = dfMeta.loc[dfMeta['Key'] == "Judges", 'Value'].values[0]
     print(f'Tournament has {allowedJudgesAwardCount} judges awards available across both divisions')
-    judgesAwardDf[int(div)] = dfRankings[(dfRankings["Award"].str.startswith("Judges", na=False))]
+    judgesAwardDf[div] = dfRankings[(dfRankings["Award"].str.startswith("Judges", na=False))]
 
     judgesAwardHtml[div] = ""
     # print(advancingDf[div])
-    for index, row in judgesAwardDf[int(div)].iterrows():
+    for index, row in judgesAwardDf[div].iterrows():
         try:
             teamNum = str(int(row['Team Number']))
         except:
@@ -267,30 +268,61 @@ for tourn_filename in directory_list:
         input("Press enter to quit...")
         sys.exit(1)
 
+    print(
+        f'All done collecting data from the Div {div} OJS. Checking validity now.',
+        tag=f'OK',
+        tag_color="green",
+        color="green",
+    )
+    try: 
+        divJudgesAwards[div - 1] = len(judgesAwardDf[div])
+    except:
+        divJudgesAwards[div - 1] = 0
+
+    print(f'Total number of judges awards selected for Div {div} = {divJudgesAwards[div - 1]}')
+
+    # Advancing checks
+    try: 
+        divAdvancing = len(advancingDf[div - 1])
+    except:
+        divAdvancing = 0
+
+    print(f'Total number of advancing teams selected for Div {div} = {divAdvancing}')
+    if divAdvancing < allowedAdvancingCount[div - 1]:
+        print(
+            f'You have selected fewer advancing div {div} teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[div - 1]} advancing teams for division {div}, but you have only selected {divAdvancing}.\n\nThis is not an error and you may continue building the script with fewer advancing teams than permitted.',
+            tag=f'warning',
+            tag_color="red",
+            color="red",
+        )
+        try:
+            input("Press enter to continue. Press ctrl-c to quit...")
+        except:
+            print("\n\nStopped building the script. Please check that the OJS files are filled out correctly before trying to build the script again.")
+            sys.exit(0)
+
+    if divAdvancing > allowedAdvancingCount[div - 1]:
+        print(
+            f'You have selected more advancing div {div} teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[div - 1]} advancing teams for division {div}, but you have selected {divAdvancing}.\n\n',
+            tag=f'error',
+            tag_color="red",
+            color="red",
+        )
+        input("Press enter to continue. Press ctrl-c to quit...")
+        sys.exit(0)
 
 # End of OJS loop
 # # # # # # # # # # # # # # # # # # # # #
 
-print(
-    f'All done collecting data from the OJS. Checking validity now.',
-    tag=f'OK',
-    tag_color="green",
-    color="green",
-)
-try: 
-    d1JudgesAwards = len(judgesAwardDf[1])
-except:
-    d1JudgesAwards = 0
-
-try: 
-    d2JudgesAwards = len(judgesAwardDf[2])
-except:
-    d2JudgesAwards = 0
-
-
-print(f'Total number of judges awards selected: Div 1 = {d1JudgesAwards}; Div 2 = {d2JudgesAwards}; total = {judgesAwardTotalCount}')
+# Judges awards
+judgesAwardTotalCount = divJudgesAwards[0] + divJudgesAwards[1]
 if judgesAwardTotalCount > allowedJudgesAwardCount:
-    print(f'You have selected too many judges awards. You are permitted a total of {allowedJudgesAwardCount} judges awards. If your tournament has two divisions, that total number is across both divisions. In other words, if you are allowed three judges awards, you could have three from Div 1 or two from Div 1 and one from Div 2, etc.')
+    print(
+        f'You have selected too many judges awards: D1 = {divJudgesAwards[0]}; D2 = {divJudgesAwards[1]}. You are permitted a total of {allowedJudgesAwardCount} judges awards.\nIf your tournament has two divisions, that total number is across both divisions.\nIn other words, if you are allowed three judges awards, you could have three from\nDiv 1 or two from Div 1 and one from Div 2, etc.',
+        tag=f'error',
+        tag_color="red",
+        color="red",
+    )
     input("Press enter to quit...")
     sys.exit(1)
 
@@ -307,64 +339,12 @@ if judgesAwardTotalCount < allowedJudgesAwardCount:
         print("\n\nStopped building the script. Please check that the OJS files are filled out correctly before trying to build the script again.")
         sys.exit(0)
 
-# D1 Advancing checks
-try: 
-    d1Advancing = len(advancingDf[1])
-except:
-    d1Advancing = 0
-
-if d1Advancing < allowedAdvancingCount[0]:
-    print(
-        f'You have selected fewer advancing D1 teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[0]} advancing teams for division 1, but you have only selected {d1Advancing}.\n\nThis is not an error and you may continue building the script with fewer advancing teams than permitted.',
-        tag=f'warning',
-        tag_color="red",
-        color="red",
-    )
-    try:
-        input("Press enter to continue. Press ctrl-c to quit...")
-    except:
-        print("\n\nStopped building the script. Please check that the OJS files are filled out correctly before trying to build the script again.")
-        sys.exit(0)
-
-if d1Advancing > allowedAdvancingCount[0]:
-    print(
-        f'You have selected more advancing D1 teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[0]} advancing teams for division 1, but you have selected {d1Advancing}.\n\n',
-        tag=f'error',
-        tag_color="red",
-        color="red",
-    )
-    input("Press enter to continue. Press ctrl-c to quit...")
-    sys.exit(0)
-
-# D2 Advancing checks
-try: 
-    d2Advancing = len(advancingDf[2])
-except:
-    d2Advancing = 0
-
-if d2Advancing < allowedAdvancingCount[1]:
-    print(
-        f'You have selected fewer advancing D2 teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[1]} advancing teams for division 2, but you have only selected {d2Advancing}.\n\nThis is not an error and you may continue building the script with fewer advancing teams than permitted.',
-        tag=f'warning',
-        tag_color="red",
-        color="red",
-    )
-    try:
-        input("Press enter to continue. Press ctrl-c to quit...")
-    except:
-        print("\n\nStopped building the script. Please check that the OJS files are filled out correctly before trying to build the script again.")
-        sys.exit(0)
-
-if d2Advancing > allowedAdvancingCount[1]:
-    print(
-        f'You have selected more advancing D2 teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[1]} advancing teams for division 1, but you have selected {d2Advancing}.\n\n',
-        tag=f'error',
-        tag_color="red",
-        color="red",
-    )
-    input("Press enter to continue. Press ctrl-c to quit...")
-    sys.exit(0)
-
+print(
+    f'All checks look good.',
+    tag=f'OK',
+    tag_color="green",
+    color="green",
+)
 
 print("Rendering the script")
 out_text = template.render(
