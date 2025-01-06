@@ -211,6 +211,7 @@ def set_up_award_worksheet(tournament:pd.Series, judge_awards: int):
         divawards.drop(divawards[divawards["Award"] == "RG3"].index, inplace=True)
         divawards = divawards[(divawards["Count"] > 0)]
         divawards = divawards.reset_index(drop=True)
+        print('Writing divawards to the AwardList table')
         print(divawards)
 
         if len(divawards.index) > 0:

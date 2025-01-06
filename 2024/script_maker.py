@@ -51,18 +51,30 @@ def read_excel_table(sheet, table_name):
 
 print("Building Closing Ceremony script")
 
-templateLoader = FileSystemLoader(searchpath="2024/")
-templateEnv = Environment(loader=templateLoader)
-TEMPLATE_FILE = "script_template.html.jinja"
-template = templateEnv.get_template(TEMPLATE_FILE)
-
-warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
-
-ordinals = ["1st", "2nd", "3rd", "4th", "5th"]
 if getattr(sys, 'frozen', False):
     dir_path = os.path.dirname(sys.executable)
 elif __file__:
     dir_path = os.path.dirname(__file__)
+
+templateLoader = FileSystemLoader(searchpath=dir_path)
+templateEnv = Environment(loader=templateLoader)
+TEMPLATE_FILE = "script_template.html.jinja"
+try:
+    template = templateEnv.get_template(TEMPLATE_FILE)
+except Exception as e:
+    print(
+        f"Fatal error. Could not read the template file {TEMPLATE_FILE}.\nThe error was {e}",
+        tag=f'error',
+        tag_color="red",
+        color="red",
+    )
+    input("Press enter to quit...")
+    sys.exit(1)
+
+
+warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
+
+ordinals = ["1st", "2nd", "3rd", "4th", "5th"]
 
 # print("Opening yaml data file: " + yaml_data_file)
 # with open(yaml_data_file) as f:
