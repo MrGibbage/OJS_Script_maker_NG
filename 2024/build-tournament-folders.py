@@ -2,41 +2,32 @@
 # .venv\Scripts\pyinstaller.exe -F 2024\build-tournament-folders.py
 # Then copy the build-tournament-folders.exe file from dist to 2024
 #
-import os, sys, re
+import os, sys, re, time
+import shutil
+import warnings
 
 # pip install openpyxl
 from openpyxl import load_workbook
 from openpyxl.utils.cell import column_index_from_string, get_column_letter, coordinate_from_string
 from openpyxl.worksheet.table import Table
+from openpyxl.worksheet.cell_range import CellRange
+from openpyxl.workbook import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
+from openpyxl.cell import Cell
+from openpyxl.styles import PatternFill
+from openpyxl.formatting.rule import Rule, CellIsRule, FormulaRule
 # pip install print-color
 from print_color import print
 
-from typing import Dict
+# pip install pywin32
+import win32com.client
 
-import shutil
-
-import numpy as np
-
+# pip install pandas
 import pandas as pd
 
-import warnings
+# pip install xlwings
+import xlwings
 
-# If this line isn't here, we will get a UserWarning when we run the program, alerting us that the
-# conditional formatting in the spreadsheets will not be preserved when we copy the data.
-# We don't need conditional formatting within the data manipulation, so it isn't a big deal
-# UserWarning: Data Validation extension is not supported and will be removed
-# https://stackoverflow.com/questions/53965596/python-3-openpyxl-userwarning-data-validation-extension-not-supported
-warnings.simplefilter(action='ignore', category=UserWarning)
-
-cwd: str = os.getcwd()
-if getattr(sys, 'frozen', False):
-    dir_path = os.path.dirname(sys.executable)
-elif __file__:
-    dir_path = os.path.dirname(__file__)
-
-current_year: str = '2024'
-tournament_file: str = dir_path + '\\2024-FLL-Qualifier-Tournaments.xlsx'
-template_file: str = dir_path + '\\2024-Qualifier-Template.xlsm'
 
 # from https://stackoverflow.com/questions/56923379/how-to-read-an-existing-worksheet-table-with-openpyxl
 def read_excel_table(sheet, table_name):
@@ -107,7 +98,6 @@ def copy_files(item:pd.Series):
     for filename in ojsfilelist:
         try:
             shutil.copy(template_file, dir_path + "\\tournaments\\" + item["Short Name"] + "\\" + filename)
-            # print(f'Copied {template_file} to {startpath + item["Short Name"] + "\\" + filename}')
         except Exception as  e:
             print(
                 f'Could not copy OJS file: {template_file} to {dir_path + "\\tournaments\\" + item["Short Name"] + "\\" + filename}',
@@ -143,9 +133,11 @@ def set_up_tapi_worksheet(tournament:pd.Series):
                     # cell = f'{get_column_letter(start_col)}{i + 3 - start_index}'
                     # print(f'Cell: {cell}, setting value {row['Team #']}')
                     # ws[cell] = row['Team #']
-                    ws.cell(row=i + 3 - start_index, column=start_col).value = row['Team #']
-                    ws.cell(row=i + 3 - start_index, column=start_col + 1).value = row['Team Name']
-                    ws.cell(row=i + 3 - start_index, column=start_col + 2).value = row['Coach Name']
+                    thisrow = i + 3 - start_index
+                    ws.cell(row=thisrow, column=start_col).value = row['Team #']
+                    ws.cell(row=thisrow, column=start_col + 1).value = row['Team Name']
+                    ws.cell(row=thisrow, column=start_col + 2).value = row['Coach Name']
+
 
                 # Save the workbook
                 print(f'Saving workbook. OfficialTeamList ref: {table.ref}')
@@ -241,7 +233,6 @@ def set_up_meta_worksheet(tournament:pd.Series, yr: int, seasonName: str):
         print(f'Season year: {yr}; season name: {seasonName}')
         print(tournament)
         if tournament[d + "_OJS"] is not None:
-            print(f'ojs file is not None. Here it is:{tournament[d + "_OJS"]}.')
             ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
             print(f'Loading ojs workbook {ojsfile}')
             ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
@@ -279,10 +270,170 @@ def set_up_meta_worksheet(tournament:pd.Series, yr: int, seasonName: str):
             ws.cell(row=14, column=2).value = tournament["Judges_1"] + tournament["Judges_2"] + tournament["Judges_3"] + tournament["Judges_4"] + tournament["Judges_5"] + tournament["Judges_6"]
             ojs_book.save(ojsfile)
 
+def copy_team_numbers(source_sheet: Worksheet, target_sheet: Worksheet, target_start_row: int):
+    source_start_row = 3
+
+    column = 'A'
+    last_row = 0
+    print(f'Copying team numbers to {target_sheet}')
+    # Iterate through the rows in the specified column
+    for row in range(1, source_sheet.max_row + 1):
+        if source_sheet[f'{column}{row}'].value is not None:
+            last_row = row
+    team_count = last_row - source_start_row + 1
+    col = 1 # Team number is always in column 1 ('A')
+    # itterate over the source rows. The dest row may not always align with 
+    # the source row. Some sheets start on row 3, some start on 2
+    current_target_row = target_start_row
+    for row in range(source_start_row, source_start_row + team_count + 1):
+        cell_value = source_sheet.cell(row=row, column=col).value
+        target_sheet.cell(row=current_target_row, column=col).value = cell_value
+        current_target_row += 1
+
+    
+def protect_worksheets(tournament:pd.Series):
+    for d in ["D1", "D2"]:
+        if tournament[d + "_OJS"] is None:
+            print(f'*-*-*-* No division {d} to check for {tournament["Short Name"]}')
+            continue
+        print(f'Protecting {d} {tournament["Short Name"]}')
+        ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
+        ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
+        for ws in ojs_book.worksheets:
+            print(f'{ws}')
+            ws.protection.sheet = True
+
+        ojs_book.save(ojsfile)
+
+
+def resize_worksheets(tournament:pd.Series):
+    worksheetNames = ["Robot Game Scores", "Innovation Project Input", "Robot Design Input", "Core Values Input", "Results and Rankings"]
+    worksheetTables = ["RobotGameScores", "InnovationProjectResults", "RobotDesignResults", "CoreValuesResults", "TournamentData"]
+    worksheet_start_row = [2, 2, 2, 2, 3]
+    for d in ["D1", "D2"]:
+        sheet_tables = zip(worksheetNames, worksheetTables, worksheet_start_row)
+        if tournament[d + "_OJS"] is None:
+            print(f'*-*-*-* No division {d} to check for {tournament["Short Name"]}')
+            continue
+
+        print(f'Resizing {d} {tournament["Short Name"]}')
+        ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
+        ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
+        divassignees: pd.DataFrame = dfAssignments[(dfAssignments["Tournament"] == tournament["Short Name"]) & (dfAssignments["Div"] == d)]
+
+        # copy the team number data to each of the worksheets
+        for s, t, r in sheet_tables:
+            ws = ojs_book[s]
+            tapi_sheet = ojs_book['Team and Program Information']
+            # first, copy the team numbers over
+            copy_team_numbers(source_sheet=tapi_sheet, target_sheet=ws, target_start_row=r)
+
+        # Resize the tables
+        sheet_tables = zip(worksheetNames, worksheetTables, worksheet_start_row)
+        for s, t, r in sheet_tables:
+            print(f'{s}, {r}, {t}')
+            ws = ojs_book[s]
+            table: Table = ws.tables[t]
+            table_range: str = table.ref
+            start_cell = table_range.split(':')[0]
+            start_row = int(re.findall(r'\d', start_cell)[0])
+            colonPos = (table.ref).find(":")
+            print(f'Resizing the {d} {t} table {table.ref}, {table.ref[:colonPos]}, {re.sub(r'\d', '', table.ref[colonPos + 1])}, {str(len(divassignees) + 2)}.')
+            table.ref = table.ref[:colonPos] + ":" + re.sub(r'\d', '', table.ref[colonPos + 1]) + str(start_row + len(divassignees))
+            # print(f'New table.ref = {table.ref}')
+            ws.delete_rows(idx=start_row + len(divassignees) + 1, amount=200)
+            # ws.protection.sheet = True
+
+        ojs_book.save(ojsfile)
+        
+
+
+def add_conditional_formats(tournament:pd.Series):
+    # Create fill
+    greenAwardFill = PatternFill(start_color='00B050', end_color='00B050', fill_type='solid')
+    greenAdvFill = PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid')
+    rgGoldFill = PatternFill(start_color='C9B037', end_color='C9B037', fill_type='solid')
+    rgSilverFill = PatternFill(start_color='D7D7D7', end_color='D7D7D7', fill_type='solid')
+    rgBronzeFill = PatternFill(start_color='AD8A56', end_color='AD8A56', fill_type='solid')
+    for d in ["D1", "D2"]:
+        if tournament[d + "_OJS"] is None:
+            continue
+        print(f'Adding conditional formats to {d} {tournament["Short Name"]}')
+        ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
+        ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
+        ws = ojs_book['Results and Rankings']
+        # Award
+        ws.conditional_formatting.add('O2',
+                                     FormulaRule(formula=['COUNTA(AwardList!$A$2:$A$35)=COUNTA($O$3:$O$288)'],
+                                                stopIfTrue=False,
+                                                fill=greenAwardFill
+                                                )
+                                     )
+        # Advancing
+        ws.conditional_formatting.add('P2',
+                                     FormulaRule(formula=['COUNTIF($P:$P,"Yes")=Meta!$B$13'],
+                                                stopIfTrue=False,
+                                                fill=greenAdvFill
+                                                )
+                                     )
+        # Robot Game Gold
+        ws.conditional_formatting.add('I1:I100',
+                                     FormulaRule(formula=['AND(I1=1,IF(VLOOKUP("Robot Game 1st Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 1st Place", TRUE, FALSE))'],
+                                                stopIfTrue=False,
+                                                fill=rgGoldFill
+                                                )
+                                     )
+        # Robot Game Silver
+        ws.conditional_formatting.add('I1:I100',
+                                     FormulaRule(formula=['AND(I1=2,IF(VLOOKUP("Robot Game 2nd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 2nd Place", TRUE, FALSE))'],
+                                                stopIfTrue=False,
+                                                fill=rgSilverFill
+                                                )
+                                     )
+        # Robot Game Bronze
+        ws.conditional_formatting.add('I1:I100',
+                                     FormulaRule(formula=['AND(I1=3,IF(VLOOKUP("Robot Game 3rd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 3rd Place", TRUE, FALSE))'],
+                                                stopIfTrue=False,
+                                                fill=rgBronzeFill
+                                                )
+                                     )
+        ojs_book.save(ojsfile)
+
+def hide_worksheets(tournament:pd.Series):
+    worksheetNames = ["Data Validation", "Meta", "AwardList"]
+    for d in ["D1", "D2"]:
+        if tournament[d + "_OJS"] is None:
+            continue
+        print(f'Hiding worksheets in {d} {tournament["Short Name"]}')
+        ojsfile = dir_path + "\\tournaments\\" + tournament["Short Name"] + "\\" + tournament[d + "_OJS"]
+        ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
+
+        for sheetname in worksheetNames:
+            ws = ojs_book[sheetname]
+            ws.sheet_state = 'hidden'
+
+        ojs_book.save(ojsfile)
 
 # # # # # # # # # # # # # # # # # # # # #
 
-print("Checking to make sure files and folders are set up correctly")
+# If this line isn't here, we will get a UserWarning when we run the program, alerting us that the
+# conditional formatting in the spreadsheets will not be preserved when we copy the data.
+# We don't need conditional formatting within the data manipulation, so it isn't a big deal
+# UserWarning: Data Validation extension is not supported and will be removed
+# https://stackoverflow.com/questions/53965596/python-3-openpyxl-userwarning-data-validation-extension-not-supported
+warnings.simplefilter(action='ignore', category=UserWarning)
+
+cwd: str = os.getcwd()
+if getattr(sys, 'frozen', False):
+    dir_path = os.path.dirname(sys.executable)
+elif __file__:
+    dir_path = os.path.dirname(__file__)
+
+current_year: str = '2024'
+tournament_file: str = dir_path + '\\2024-FLL-Qualifier-Tournaments.xlsx'
+template_file: str = dir_path + '\\2024-Qualifier-Template.xlsm'
+
+print("Checking to make sure *extra* files and folders are set up correctly")
 
 # Any files that are to be copied directly into each torunament folder should be added to this list
 extrafilelist: list[str] = [dir_path + "\\script_maker.exe", dir_path + "\\script_template.html.jinja"]
@@ -307,6 +458,7 @@ for filename in extrafilelist:
         input("Press enter to quit...")
         sys.exit(1)
 
+# Read the state tournament workbook to get the details for all of the events
 try:
     print(f"Getting tournaments from {dir_path}")
     book = load_workbook(tournament_file, data_only=True)
@@ -339,6 +491,8 @@ except Exception as e:
     input("Press enter to quit...")
     sys.exit(1)
 
+# Now that we have all of the info for the tournaments, loop through and
+# start building the OJS files and folders
 for index, row in dfTournaments.iterrows():
     newpath = dir_path + "\\tournaments\\" + row['Short Name']
     judge_award_count = row['Judges_1'] + row['Judges_2'] + row['Judges_3'] + row['Judges_4'] + row['Judges_5'] + row['Judges_6']
@@ -347,6 +501,10 @@ for index, row in dfTournaments.iterrows():
     set_up_tapi_worksheet(row)
     set_up_award_worksheet(row, judge_award_count)
     set_up_meta_worksheet(row, seasonYear, seasonName)
+    add_conditional_formats(row)
+    hide_worksheets(row)
+    resize_worksheets(row)
+    protect_worksheets(row)
    
 input("Press enter to quit...")
 sys.exit(1)

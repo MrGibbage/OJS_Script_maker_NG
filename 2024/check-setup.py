@@ -35,11 +35,14 @@ def open_dataframe(ojsfile: str, sheetname: str, division: str, cols: list[str],
             tag_color="white",
             color="white",
         )
+        wb = load_workbook(ojsfile, data_only=True, read_only=True)
         dataframe = pd.read_excel(
-            ojsfile,
+            wb,
             sheet_name=sheetname,
             header=header_row,
             usecols=cols,
+            engine='openpyxl',
+            keep_default_na=False
         )
         print(dataframe)
         return dataframe
@@ -99,27 +102,28 @@ def check_column_for_valid_values(data: pd.DataFrame, division: str, v: int, col
         input("Press enter to quit...")
         sys.exit(1)
 
-def check_dataframe_for_valid_team_numbers_and_names(data: pd.DataFrame, division: str):
-    # print("check_dataframe_for_valid_team_numbers_and_names")
-    # print(data)
+def check_dataframe_for_valid_team_numbers_and_names(data: pd.DataFrame, division: str, sheetName: str):
+    print("check_dataframe_for_valid_team_numbers_and_names")
+    print(data)
     for c in ["Team Number", "Team Name"]:
+        print(f'Checking the {c} column\n{data[c]}')
         try:
             if data[c].isnull().values.any():
                 print(
-                    f"Found a null in the {division} OJS Team Numbers\n{data[c]}",
+                    f"Found a null in the {division} OJS Team Numbers {sheetName} {c}\n{data[c]}",
                     tag=f'{tourn}',
                     tag_color="red",
                     color="red",
                 )
                 sys.exit(1)
             print(
-                f"Checked for null values in the {division} {c} column -- OK",
+                f"Checked for null values in the {division} {sheetName} {c} column -- OK",
                 tag=f'{tourn}',
                 tag_color="white",
                 color="white",
             )
         except Exception as e:
-            print(f"There was a team number/name error {e}", tag=f'{tourn}', tag_color="red", color="red")
+            print(f"There was a team number/name error {sheetName} {c}\n{e}", tag=f'{tourn}', tag_color="red", color="red")
             input("Press enter to quit...")
             sys.exit(1)
 
@@ -384,11 +388,11 @@ def run_checks(d):
         )
         print(dataframes[division])
 
-    check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
-    check_column_for_valid_values(dataframes[division], division, 0, ["Max Robot Game Score"])
-    check_column_for_valid_values(dataframes[division], division, 1, ["Robot Game Rank"])
-    check_column_for_valid_values(dataframes[division], division, "No", ["Advance?"])
-    check_column_for_null_values(dataframes[division], division, ["Award"])
+        # check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division, "Results and Rankings")
+        # check_column_for_valid_values(dataframes[division], division, 0, ["Max Robot Game Score"])
+        # check_column_for_valid_values(dataframes[division], division, 1, ["Robot Game Rank"])
+        # check_column_for_valid_values(dataframes[division], division, "No", ["Advance?"])
+        # check_column_for_null_values(dataframes[division], division, ["Award"])
 
 
 #### ROBOT GAME SCORES
@@ -429,9 +433,9 @@ def run_checks(d):
         )
         print(dataframes[division])
 
-    check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
-    check_column_for_null_values(dataframes[division], division, ["Robot Game 1 Score", "Robot Game 2 Score", "Robot Game 3 Score"])
-    check_column_for_valid_values(dataframes[division], division, 0, ["Highest Robot Game Score"])
+    # check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division, "Robot Game Scores")
+    # check_column_for_null_values(dataframes[division], division, ["Robot Game 1 Score", "Robot Game 2 Score", "Robot Game 3 Score"])
+    # check_column_for_valid_values(dataframes[division], division, 0, ["Highest Robot Game Score"])
 
 
 #### INNOVATION PROJECT
@@ -477,21 +481,21 @@ def run_checks(d):
             color="yellow",
         )
         print(dataframes[division])
-        check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
-        check_column_for_null_values(dataframes[division], division, [
-                "Identify - Define",
-                "Identify - Research (CV)",
-                "Design - Plan",
-                "Design - Teamwork (CV)",
-                "Create - Innovation (CV)",
-                "Create - Model",
-                "Iterate - Sharing",
-                "Iterate - Improvement",
-                "Communicate - Impact (CV)",
-                "Communicate - Fun (CV)",
-            ])
-        check_column_for_valid_values(dataframes[division], division, 0, ["Innovation Project Score"])
-        check_column_for_valid_values(dataframes[division], division, 1, ["Innovation Project Rank"])
+        # check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division, "Innovation Project Input")
+        # check_column_for_null_values(dataframes[division], division, [
+        #         "Identify - Define",
+        #         "Identify - Research (CV)",
+        #         "Design - Plan",
+        #         "Design - Teamwork (CV)",
+        #         "Create - Innovation (CV)",
+        #         "Create - Model",
+        #         "Iterate - Sharing",
+        #         "Iterate - Improvement",
+        #         "Communicate - Impact (CV)",
+        #         "Communicate - Fun (CV)",
+        #     ])
+        # check_column_for_valid_values(dataframes[division], division, 0, ["Innovation Project Score"])
+        # check_column_for_valid_values(dataframes[division], division, 1, ["Innovation Project Rank"])
 
 
 
@@ -538,21 +542,21 @@ def run_checks(d):
             color="yellow",
         )
         print(dataframes[division])
-        check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
-        check_column_for_null_values(dataframes[division], division, [
-                "Identify - Strategy",
-                "Identify - Research (CV)",
-                "Design - Ideas (CV)",
-                "Design - Building/Coding",
-                "Create - Attachments",
-                "Create - Code/ Sensors",
-                "Iterate - Testing",
-                "Iterate - Improvements (CV)",
-                "Communicate - Impact (CV)",
-                "Communicate - Fun (CV)",
-            ])
-        check_column_for_valid_values(dataframes[division], division, 0, ["Robot Design Score"])
-        check_column_for_valid_values(dataframes[division], division, 1, ["Robot Design Rank"])
+        # check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division, "Robot Design Input")
+        # check_column_for_null_values(dataframes[division], division, [
+        #         "Identify - Strategy",
+        #         "Identify - Research (CV)",
+        #         "Design - Ideas (CV)",
+        #         "Design - Building/Coding",
+        #         "Create - Attachments",
+        #         "Create - Code/ Sensors",
+        #         "Iterate - Testing",
+        #         "Iterate - Improvements (CV)",
+        #         "Communicate - Impact (CV)",
+        #         "Communicate - Fun (CV)",
+        #     ])
+        # check_column_for_valid_values(dataframes[division], division, 0, ["Robot Design Score"])
+        # check_column_for_valid_values(dataframes[division], division, 1, ["Robot Design Rank"])
 
 #### CORE VALUES
 
@@ -602,28 +606,28 @@ def run_checks(d):
             color="yellow",
         )
         print(dataframes[division])
-        check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division)
-        check_column_for_null_values(dataframes[division], division, [
-                "Gracious Professionalism 1",
-                "Gracious Professionalism 2",
-                "Gracious Professionalism 3",
-            ])
-        check_column_for_valid_values(dataframes[division], division, 0, [
-                "Identify - Research (CV-IP)",
-                "Design - Teamwork (CV-IP)",
-                "Create - Innovation (CV-IP)",
-                "Communicate - Impact (CV-IP)",
-                "Communicate - Fun (CV-IP)",
-                "Identify - Research (CV-RD)",
-                "Design - Ideas (CV-RD)",
-                "Iterate - Improvements (CV-RD)",
-                "Communicate - Impact (CV-RD)",
-                "Communicate - Fun (CV-RD)",
-                "Gracious Professionalism Score",
-                "Gracious Professionalism Total",
-                "Core Values Score",
-            ])
-        check_column_for_valid_values(dataframes[division], division, 1, ["Core Values Rank"])
+        # check_dataframe_for_valid_team_numbers_and_names(dataframes[division], division, "Core Values Input")
+        # check_column_for_null_values(dataframes[division], division, [
+        #         "Gracious Professionalism 1",
+        #         "Gracious Professionalism 2",
+        #         "Gracious Professionalism 3",
+        #     ])
+        # check_column_for_valid_values(dataframes[division], division, 0, [
+        #         "Identify - Research (CV-IP)",
+        #         "Design - Teamwork (CV-IP)",
+        #         "Create - Innovation (CV-IP)",
+        #         "Communicate - Impact (CV-IP)",
+        #         "Communicate - Fun (CV-IP)",
+        #         "Identify - Research (CV-RD)",
+        #         "Design - Ideas (CV-RD)",
+        #         "Iterate - Improvements (CV-RD)",
+        #         "Communicate - Impact (CV-RD)",
+        #         "Communicate - Fun (CV-RD)",
+        #         "Gracious Professionalism Score",
+        #         "Gracious Professionalism Total",
+        #         "Core Values Score",
+        #     ])
+        # check_column_for_valid_values(dataframes[division], division, 1, ["Core Values Rank"])
 
 #### AWARD LIST
 
@@ -743,8 +747,14 @@ if tourn == "":
         color="green",
 else:
     d = dir_path + "\\tournaments\\" + tourn
-    run_checks(d)
 
+    if not(os.path.isdir(d)):
+        print(f"You didn't enter a valid tournament name. Your choices are {os.listdir(dir_path + "\\tournaments")}")
+        sys.exit(1)
+    else:
+        run_checks(d)
+
+    # if we got this far then there weren't any errors
     print(
         f"Looks great! No problems detected in the {tourn} tournament",
         tag=f'{tourn}',
