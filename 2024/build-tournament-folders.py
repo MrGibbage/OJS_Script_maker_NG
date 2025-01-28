@@ -481,6 +481,10 @@ try:
     ws = book['Assignments']
     columns, data = read_excel_table(ws, 'Assignments')
     dfAssignments = pd.DataFrame(data=data, columns=columns)
+    tourn_array: list[str] = []
+    for index, row in dfTournaments.iterrows():
+        tourn_array.append(row["Short Name"])
+
 except Exception as e:
     print(
         f'Could not open the tournament file: {tournament_file}. Check to make sure it is not open in Excel.\n{e}',
@@ -490,6 +494,15 @@ except Exception as e:
     )
     input("Press enter to quit...")
     sys.exit(1)
+
+# Are we building all of the tournaments, or just one?
+tourn = input("Enter the tournament short name, or press ENTER for all tournaments: ")
+if tourn != "":
+    if tourn in tourn_array:
+        dfTournaments = dfTournaments.loc[dfTournaments['Short Name'] == tourn]
+    else:
+        input(f"Tournament not found. The tournament name must come from this list: {tourn_array}\nPress enter to exit...")
+        sys.exit(1)
 
 # Now that we have all of the info for the tournaments, loop through and
 # start building the OJS files and folders
@@ -506,6 +519,6 @@ for index, row in dfTournaments.iterrows():
     resize_worksheets(row)
     protect_worksheets(row)
    
-input("Press enter to quit...")
+input(f"All done. Created OJS workbooks for {len(dfTournaments)} tournament(s). Press enter to quit...")
 sys.exit(1)
 
