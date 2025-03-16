@@ -33,6 +33,8 @@ import pandas as pd
 # pip install xlwings
 import xlwings
 
+SHEET_PASSWORD: str = "skip"
+
 
 # from https://stackoverflow.com/questions/56923379/how-to-read-an-existing-worksheet-table-with-openpyxl
 def read_excel_table(sheet, table_name):
@@ -426,7 +428,13 @@ def protect_worksheets(tournament: pd.Series):
         ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
         for ws in ojs_book.worksheets:
             print(f"Protecting {ws}")
-            ws.protection.sheet = True
+            ws.protection.selectLockedCells = True
+            ws.protection.selectUnlockedCells = False
+            ws.protection.autoFilter = False
+            ws.protection.sort = False
+            ws.protection.set_password(SHEET_PASSWORD)
+            # ws.protection.sheet = True
+            ws.protection.enable()
             print(f"{ws} is protected")
 
         ojs_book.save(ojsfile)
