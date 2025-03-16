@@ -317,13 +317,6 @@ def run_checks(d):
             color="white",
         )
 
-    print(
-        f"Base file name: {base_file_name}",
-        tag=f"{tourn}",
-        tag_color="white",
-        color="white",
-    )
-
     if len(xlsm_files) == 1:
         print(
             "Checking to see if it is a div1 or div2",
@@ -334,6 +327,7 @@ def run_checks(d):
         m = re.search(regex, xlsm_files[0])
         div = m.group(4)
         print("Found", div, tag=f"{tourn}", tag_color="white", color="white")
+        base_file_name = m.group(1) + m.group(2) + m.group(3) + "-"
         if div in divlist:
             print(
                 f"Good. Found {m.group(4)}",
@@ -357,6 +351,13 @@ def run_checks(d):
             tag_color="green",
             color="white",
         )
+
+    print(
+        f"Base file name: {base_file_name}",
+        tag=f"{tourn}",
+        tag_color="white",
+        color="white",
+    )
 
     print(divlist, tag=f"{tourn}", tag_color="white", color="white")
 
