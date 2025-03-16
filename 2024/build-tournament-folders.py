@@ -425,8 +425,9 @@ def protect_worksheets(tournament: pd.Series):
         )
         ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
         for ws in ojs_book.worksheets:
-            print(f"{ws}")
+            print(f"Protecting {ws}")
             ws.protection.sheet = True
+            print(f"{ws} is protected")
 
         ojs_book.save(ojsfile)
 
