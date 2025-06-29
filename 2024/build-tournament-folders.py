@@ -1,4 +1,6 @@
-# To create an executable file, run
+# To create an executable file, 
+# pip install pyinstaller
+# the run
 # .venv\Scripts\pyinstaller.exe -F 2024\build-tournament-folders.py
 # Then copy the build-tournament-folders.exe file from dist to 2024
 #
@@ -561,10 +563,10 @@ def add_conditional_formats(tournament: pd.Series):
         )
         # Robot Game Gold
         ws.conditional_formatting.add(
-            "I1:I100",
+            "J1:J100",
             FormulaRule(
                 formula=[
-                    'AND(I1=1,IF(VLOOKUP("Robot Game 1st Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 1st Place", TRUE, FALSE))'
+                    'AND(J1=1,IF(VLOOKUP("Robot Game 1st Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 1st Place", TRUE, FALSE))'
                 ],
                 stopIfTrue=False,
                 fill=rgGoldFill,
@@ -572,10 +574,10 @@ def add_conditional_formats(tournament: pd.Series):
         )
         # Robot Game Silver
         ws.conditional_formatting.add(
-            "I1:I100",
+            "J1:J100",
             FormulaRule(
                 formula=[
-                    'AND(I1=2,IF(VLOOKUP("Robot Game 2nd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 2nd Place", TRUE, FALSE))'
+                    'AND(J1=2,IF(VLOOKUP("Robot Game 2nd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 2nd Place", TRUE, FALSE))'
                 ],
                 stopIfTrue=False,
                 fill=rgSilverFill,
@@ -583,10 +585,10 @@ def add_conditional_formats(tournament: pd.Series):
         )
         # Robot Game Bronze
         ws.conditional_formatting.add(
-            "I1:I100",
+            "J1:J100",
             FormulaRule(
                 formula=[
-                    'AND(I1=3,IF(VLOOKUP("Robot Game 3rd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 3rd Place", TRUE, FALSE))'
+                    'AND(J1=3,IF(VLOOKUP("Robot Game 3rd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 3rd Place", TRUE, FALSE))'
                 ],
                 stopIfTrue=False,
                 fill=rgBronzeFill,
@@ -642,6 +644,7 @@ print("Checking to make sure *extra* files and folders are set up correctly")
 extrafilelist: list[str] = [
     dir_path + "\\script_maker.exe",
     dir_path + "\\script_template.html.jinja",
+    dir_path + "\\instructions.pdf",
 ]
 ojsfilelist: list[str] = []
 
