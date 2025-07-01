@@ -19,7 +19,7 @@ import os, sys, re, glob
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from typing import List, Dict
-from print_color import print
+from colorama import Fore, Back, Style, init
 
 # To create windows exe executable, run
 # .venv\Scripts\pyinstaller.exe -F 2024\script_maker.py
@@ -54,13 +54,33 @@ def read_excel_table(sheet, table_name):
 
     return columns, data
 
+init()
 
-print("Building Closing Ceremony script")
+print(Fore.LIGHTWHITE_EX+ "Building Closing Ceremony script")
 
 if getattr(sys, "frozen", False):
     dir_path = os.path.dirname(sys.executable)
 elif __file__:
     dir_path = os.path.dirname(__file__)
+
+if not os.path.exists(dir_path + "\\file_list.txt"):
+    print(Fore.RED + 
+        f"Fatal error. The file_list.txt file is missing in the tournament directory: {dir_path}"
+    )
+    input("Press enter to quit...")
+    sys.exit(1)
+
+with open(dir_path + "\\file_list.txt", "r") as file:
+    for line in file:
+        line = line.strip()  # Remove newline and extra spaces
+        if not os.path.exists(dir_path + "\\" + line):
+            print(Fore.RED + 
+                f"Fatal error. The {line} file is missing in the tournament directory: {dir_path}"
+            )
+            input("Press enter to quit...")
+            sys.exit(1)
+
+
 
 templateLoader = FileSystemLoader(searchpath=dir_path)
 templateEnv = Environment(loader=templateLoader)
@@ -68,11 +88,8 @@ TEMPLATE_FILE = "script_template.html.jinja"
 try:
     template = templateEnv.get_template(TEMPLATE_FILE)
 except Exception as e:
-    print(
-        f"Fatal error. Could not read the template file {TEMPLATE_FILE}.\nThe error was {e}",
-        tag=f"error",
-        tag_color="red",
-        color="red",
+    print(Fore.RED + 
+        f"Fatal error. Could not read the template file {TEMPLATE_FILE}.\nThe error was {e}"
     )
     input("Press enter to quit...")
     sys.exit(1)
@@ -119,21 +136,18 @@ for award in awards:
 
 removing = []
 if len(glob.glob(f"{dir_path}\\~*.xlsm")) > 0:
-    print(
+    print(Fore.RED + 
         "Found temporary file(s) indicating that you have one or more spreadsheets open in Excel. Please close Excel and retry."
     )
     input("Press enter to quit...")
     sys.exit(1)
 directory_list: list[str] = glob.glob(f"{dir_path}\\*div*.xlsm")
-print(f"Using this directory: {dir_path}")
-print("Found these OJS files:")
+print(Fore.LIGHTWHITE_EX + f"Using this directory: {dir_path}")
+print(Fore.LIGHTWHITE_EX + "Found these OJS files:" + Style.RESET_ALL)
 print(directory_list)
 if len(directory_list) == 0 or len(directory_list) > 2:
-    print(
-        f"Fatal error. There must be one or two OJS files in the directory. Found: {len(directory_list)}",
-        tag=f"error",
-        tag_color="red",
-        color="red",
+    print(Fore.RED + 
+        f"Fatal error. There must be one or two OJS files in the directory. Found: {len(directory_list)}"
     )
     input("Press enter to quit...")
     sys.exit(1)
@@ -147,7 +161,7 @@ for tourn_filename in directory_list:
     # so remove the path by using the length of dir_path
     m0 = re.search(regex, tourn_filename[len(dir_path) + 1 :])
     div = int(m0.group(4)[-1])
-    print(f"Division {div}")
+    print(Fore.LIGHTWHITE_EX + f"Division {div}")
 
     book = load_workbook(tourn_filename, data_only=True)
     ws = book["Meta"]
@@ -159,7 +173,7 @@ for tourn_filename in directory_list:
     ws = book["Results and Rankings"]
     columns, data = read_excel_table(ws, "TournamentData")
     dfRankings = pd.DataFrame(data=data, columns=columns)
-    print("Here is the Results and Rankings data")
+    print(Fore.LIGHTWHITE_EX + "Here is the Results and Rankings data")
     print(dfRankings)
 
     # Robot Game
@@ -169,13 +183,10 @@ for tourn_filename in directory_list:
         ].values[0]
         print(teamNum)
     except:
-        print(
-            f"Fatal error. I'm not seeing any scores. Have you filled out the OJS files and saved them to the right folder?",
-            tag=f"error",
-            tag_color="red",
-            color="red",
+        print(Fore.RED + 
+            f"Fatal error. I'm not seeing any scores. Have you filled out the OJS files and saved them to the right folder?"
         )
-        input("Press enter to quit...")
+        input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
 
     rg_html[div] = ""
@@ -193,17 +204,14 @@ for tourn_filename in directory_list:
                 ].values[0]
             )
         except:
-            print(
-                f"Fatal error. I'm having problems reading the robot game scores. Have you filled them in? Have you saved the OJS to the correct folder?",
-                tag=f"error",
-                tag_color="red",
-                color="red",
+            print(Fore.RED + 
+                f"Fatal error. I'm having problems reading the robot game scores. Have you filled them in? Have you saved the OJS to the correct folder?"
             )
             print(dir_path)
-            print(
+            print(Fore.LIGHTWHITE_EX + 
                 "All robot game ranks must be properly visible on the Results and Rankings spreadsheet. Have you filled in the scores on the Robot Game Scores worksheet?"
             )
-            input("Press enter to quit...")
+            input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
             sys.exit(1)
         rg_html[div] += (
             "<p>With a score of "
@@ -226,7 +234,7 @@ for tourn_filename in directory_list:
             continue
         for i in reversed(range(awardCounts[award])):
             thisAward = award + " " + ordinals[i] + " Place"
-            print(f"Division {div}, {thisAward}")
+            print(Fore.LIGHTWHITE_EX + f"Division {div}, {thisAward}" + Style.RESET_ALL)
             print(dfRankings.loc[dfRankings["Award"] == thisAward, "Team Number"])
             try:
                 teamNum = dfRankings.loc[
@@ -236,17 +244,14 @@ for tourn_filename in directory_list:
                     dfRankings["Award"] == thisAward, "Team Name"
                 ].values[0]
             except:
-                print(
-                    f"I'm having problems reading the required {thisAward} award for Division {div}. Have you filled it in? Have you saved the OJS to the correct folder?",
-                    tag=f"error",
-                    tag_color="red",
-                    color="red",
+                print(Fore.RED + 
+                    f"I'm having problems reading the required {thisAward} award for Division {div}. Have you filled it in? Have you saved the OJS to the correct folder?"
                 )
                 print(dir_path)
-                print(
+                print(Fore.LIGHTWHITE_EX + 
                     "All required awards must be properly selected on the Results and Rankings spreadsheet"
                 )
-                input("Press enter to quit...")
+                input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
                 sys.exit(1)
             thisText = (
                 "<p>The Division "
@@ -285,12 +290,12 @@ for tourn_filename in directory_list:
             + teamName
             + "</p>\n"
         )
-    print(f"Advancing: {advancingHtml[div]}")
+    print(Fore.LIGHTWHITE_EX + f"Advancing: {advancingHtml[div]}")
 
     print(dfRankings)
     # Judges Awards
     allowedJudgesAwardCount = dfMeta.loc[dfMeta["Key"] == "Judges", "Value"].values[0]
-    print(
+    print(Fore.LIGHTWHITE_EX + 
         f"Tournament has {allowedJudgesAwardCount} judges awards available across both divisions"
     )
     judgesAwardDf[div] = dfRankings[
@@ -322,28 +327,22 @@ for tourn_filename in directory_list:
     duplicates = filtered_df.duplicated(subset=["Award"], keep=False)
     duplicate_rows = filtered_df[duplicates]
     if len(duplicate_rows) > 0:
-        print(
-            f"There are teams with duplicate awards",
-            tag=f"error",
-            tag_color="red",
-            color="red",
+        print(Fore.RED + 
+            f"There are teams with duplicate awards" + Style.RESET_ALL
         )
         print(duplicate_rows)
         input("Press enter to quit...")
         sys.exit(1)
 
-    print(
-        f"All done collecting data from the Div {div} OJS. Checking validity now.",
-        tag=f"OK",
-        tag_color="green",
-        color="green",
+    print(Fore.GREEN + 
+        f"All done collecting data from the Div {div} OJS. Checking validity now."
     )
     try:
         divJudgesAwards[div - 1] = len(judgesAwardDf[div])
     except:
         divJudgesAwards[div - 1] = 0
 
-    print(
+    print(Fore.LIGHTWHITE_EX + 
         f"Total number of judges awards selected for Div {div} = {divJudgesAwards[div - 1]}"
     )
 
@@ -355,11 +354,8 @@ for tourn_filename in directory_list:
 
     print(f"Total number of advancing teams selected for Div {div} = {divAdvancing}")
     if divAdvancing < allowedAdvancingCount[div - 1]:
-        print(
-            f"You have selected fewer advancing div {div} teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[div - 1]} advancing teams for division {div}, but you have only selected {divAdvancing}.\n\nThis is not an error and you may continue building the script with fewer advancing teams than permitted.",
-            tag=f"warning",
-            tag_color="red",
-            color="red",
+        print(Fore.YELLOW + 
+            f"You have selected fewer advancing div {div} teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[div - 1]} advancing teams for division {div}, but you have only selected {divAdvancing}.\n\nThis is not an error and you may continue building the script with fewer advancing teams than permitted."
         )
         try:
             input("Press enter to continue. Press ctrl-c to quit...")
@@ -370,11 +366,8 @@ for tourn_filename in directory_list:
             sys.exit(0)
 
     if divAdvancing > allowedAdvancingCount[div - 1]:
-        print(
-            f"You have selected more advancing div {div} teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[div - 1]} advancing teams for division {div}, but you have selected {divAdvancing}.\n\n",
-            tag=f"error",
-            tag_color="red",
-            color="red",
+        print(Fore.RED + 
+            f"You have selected more advancing div {div} teams than allowed.\nYou are permitted a total of {allowedAdvancingCount[div - 1]} advancing teams for division {div}, but you have selected {divAdvancing}.\n\n"
         )
         input("Press enter to continue. Press ctrl-c to quit...")
         sys.exit(0)
@@ -385,21 +378,15 @@ for tourn_filename in directory_list:
 # Judges awards
 judgesAwardTotalCount = divJudgesAwards[0] + divJudgesAwards[1]
 if judgesAwardTotalCount > allowedJudgesAwardCount:
-    print(
-        f"You have selected too many judges awards: D1 = {divJudgesAwards[0]}; D2 = {divJudgesAwards[1]}. You are permitted a total of {allowedJudgesAwardCount} judges awards.\nIf your tournament has two divisions, that total number is across both divisions.\nIn other words, if you are allowed three judges awards, you could have three from\nDiv 1 or two from Div 1 and one from Div 2, etc.",
-        tag=f"error",
-        tag_color="red",
-        color="red",
+    print(Fore.RED + 
+        f"You have selected too many judges awards: D1 = {divJudgesAwards[0]}; D2 = {divJudgesAwards[1]}. You are permitted a total of {allowedJudgesAwardCount} judges awards.\nIf your tournament has two divisions, that total number is across both divisions.\nIn other words, if you are allowed three judges awards, you could have three from\nDiv 1 or two from Div 1 and one from Div 2, etc."
     )
     input("Press enter to quit...")
     sys.exit(1)
 
 if judgesAwardTotalCount < allowedJudgesAwardCount:
-    print(
-        f"You have selected fewer judges awards than allowed. You are permitted a total of {allowedJudgesAwardCount} judges awards.\nIf your tournament has two divisions, that total number is across both divisions.\nFor example, if you are allowed three judges awards, you could have all three from Div 1.\nOr you could have two from Div 1 and one from Div 2, etc.\n\nThis is not an error and you may continue building the script with fewer judges awards than permitted.",
-        tag=f"warning",
-        tag_color="red",
-        color="red",
+    print(Fore.YELLOW + 
+        f"You have selected fewer judges awards than allowed. You are permitted a total of {allowedJudgesAwardCount} judges awards.\nIf your tournament has two divisions, that total number is across both divisions.\nFor example, if you are allowed three judges awards, you could have all three from Div 1.\nOr you could have two from Div 1 and one from Div 2, etc.\n\nThis is not an error and you may continue building the script with fewer judges awards than permitted."
     )
     try:
         input("Press enter to continue. Press ctrl-c to quit...")
@@ -409,14 +396,11 @@ if judgesAwardTotalCount < allowedJudgesAwardCount:
         )
         sys.exit(0)
 
-print(
-    f"All checks look good.",
-    tag=f"OK",
-    tag_color="green",
-    color="green",
+print(Fore.GREEN + 
+    f"All checks look good."
 )
 
-print("Rendering the script")
+print(Fore.LIGHTWHITE_EX + "Rendering the script")
 out_text = template.render(
     tournament_name=dfMeta.loc[dfMeta["Key"] == "Tournament Long Name", "Value"].values[
         0
@@ -453,12 +437,12 @@ with open(
 ) as fh:
     fh.write(out_text)
 
-print(
+print(Fore.GREEN + 
     "All done! The script hase been saved as "
     + dfMeta.loc[dfMeta["Key"] == "Completed Script File", "Value"].values[0]
     + "."
 )
-print("It is saved in the same folder with the other OJS files.")
-print("Double-click the script file to view it on this computer,")
-print("or email it to yourself and view it on a phone or tablet.")
-input("Press enter to quit...")
+print(Fore.LIGHTWHITE_EX + "It is saved in the same folder with the other OJS files.")
+print(Fore.LIGHTWHITE_EX + "Double-click the script file to view it on this computer,")
+print(Fore.LIGHTWHITE_EX + "or email it to yourself and view it on a phone or tablet.")
+input(Fore.LIGHTWHITE_EX + "Press enter to quit...")

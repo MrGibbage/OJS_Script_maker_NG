@@ -119,6 +119,14 @@ def copy_files(item: pd.Series):
                 tag_color="red",
                 color="red",
             )
+    
+    # create a file list for the tournament folder
+    directory = dir_path + "\\tournaments\\" + item["Short Name"]
+    file_list = os.listdir(directory)
+    output_file = os.path.join(directory, "file_list.txt")
+    with open(output_file, "w") as f:
+        for filename in file_list:
+            f.write(filename + "\n")
 
 
 # edits the OJS spreadsheets with the correct tournament information
@@ -432,6 +440,9 @@ def protect_worksheets(tournament: pd.Series):
             print(f"Protecting {ws}")
             ws.protection.selectLockedCells = True
             ws.protection.selectUnlockedCells = False
+            ws.protection.formatCells = False
+            ws.protection.formatColumns = False
+            ws.protection.formatRows = False
             ws.protection.autoFilter = False
             ws.protection.sort = False
             ws.protection.set_password(SHEET_PASSWORD)
