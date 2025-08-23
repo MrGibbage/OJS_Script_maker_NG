@@ -19,6 +19,8 @@ import os, sys, re, glob
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from typing import List, Dict
+
+# pip install colorama
 from colorama import Fore, Back, Style, init
 
 # To create windows exe executable, run
