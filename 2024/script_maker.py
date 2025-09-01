@@ -56,6 +56,36 @@ def read_excel_table(sheet, table_name):
 
     return columns, data
 
+def check_range_for_empty_cells(worksheet, range_string):
+    """
+    Check if there are any empty cells in the specified range of an Excel worksheet.
+    
+    Args:
+        worksheet: The Excel worksheet object
+        range_string: String specifying the range (e.g. "A1:D10")
+    
+    Returns:
+        bool: True if empty cells found, False if all cells have values
+    """
+    cells = worksheet[range_string]
+    empty_cells = []
+    
+    # Handle both single row/column and rectangular ranges
+    if not isinstance(cells[0], tuple):
+        cells = [cells]
+        
+    for row_index, row in enumerate(cells):
+        for col_index, cell in enumerate(row):
+            if cell.value is None or cell.value == "":
+                empty_cells.append(f"{cell.coordinate}")
+    
+    if empty_cells:
+        warning_msg = f"Empty cells found in {range_string}: {', '.join(empty_cells)}"
+        print(Fore.YELLOW + warning_msg)
+        return True
+        
+    return False
+
 init()
 
 print(Fore.LIGHTWHITE_EX+ "Building Closing Ceremony script")
@@ -130,6 +160,7 @@ judgesAwardHtml = {}
 judgesAwardTotalCount = 0
 divJudgesAwards = [0, 0]
 allowedAdvancingCount = [0, 0]  # D1 is index 0
+numTeams = [0, 0]
 
 divisions = [1, 2]
 for award in awards:
@@ -175,8 +206,30 @@ for tourn_filename in directory_list:
     ws = book["Results and Rankings"]
     columns, data = read_excel_table(ws, "TournamentData")
     dfRankings = pd.DataFrame(data=data, columns=columns)
+    numTeams = len(dfRankings)
+    print(f"There are {numTeams} teams in Division {div}")
     print(Fore.LIGHTWHITE_EX + "Here is the Results and Rankings data")
     print(dfRankings)
+
+    if(check_range_for_empty_cells(book["Robot Game Scores"], "C2:E" + str(numTeams + 1))):
+        print(f"There are missing scores on the Robot Game Scores worksheet for Div {div}")
+        input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
+        sys.exit(1)
+
+    if(check_range_for_empty_cells(book["Robot Design Input"], "D2:M" + str(numTeams + 1))):
+        print(f"There are missing scores on the Robot Design Input worksheet for Div {div}")
+        input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
+        sys.exit(1)
+
+    if(check_range_for_empty_cells(book["Core Values Input"], "N2:P" + str(numTeams + 1))):
+        print(f"There are missing scores on the Core Values Input worksheet for Div {div}")
+        input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
+        sys.exit(1)
+
+    if(check_range_for_empty_cells(book["Innovation Project Input"], "D2:M" + str(numTeams + 1))):
+        print(f"There are missing scores on the Innovation Project Input worksheet for Div {div}")
+        input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
+        sys.exit(1)
 
     # Robot Game
     try:
