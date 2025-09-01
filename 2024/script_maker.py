@@ -247,7 +247,7 @@ for tourn_filename in directory_list:
                 ].values[0]
             except:
                 print(Fore.RED + 
-                    f"Required {thisAward} award for Division {div} is missing. Have you filled it in?"
+                    f"Required {thisAward} award for Division {div} is missing. Have you selected it in the OJS?"
                 )
                 print(dir_path)
                 print(Fore.LIGHTWHITE_EX + 
