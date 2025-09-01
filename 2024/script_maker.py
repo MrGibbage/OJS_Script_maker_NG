@@ -205,7 +205,7 @@ for tourn_filename in directory_list:
             )
         except:
             print(Fore.RED + 
-                f"Fatal error. I'm having problems reading the robot game scores. Have you filled them in? Have you saved the OJS to the correct folder?"
+                f"Fatal error. Some robot game scores are missing."
             )
             print(dir_path)
             print(Fore.LIGHTWHITE_EX + 
@@ -245,7 +245,7 @@ for tourn_filename in directory_list:
                 ].values[0]
             except:
                 print(Fore.RED + 
-                    f"I'm having problems reading the required {thisAward} award for Division {div}. Have you filled it in? Have you saved the OJS to the correct folder?"
+                    f"Required {thisAward} award for Division {div} is missing. Have you filled it in?"
                 )
                 print(dir_path)
                 print(Fore.LIGHTWHITE_EX + 
