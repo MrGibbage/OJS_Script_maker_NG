@@ -86,6 +86,85 @@ def check_range_for_empty_cells(worksheet, range_string):
         
     return False
 
+def check_range_for_valid_numbers(worksheet, range_string, min_val, max_val):
+    """
+    Check if all numeric values in the specified range fall between min and max values.
+    
+    Args:
+        worksheet: The Excel worksheet object
+        range_string: String specifying the range (e.g. "A1:D10")
+        min_val: Minimum allowed value (inclusive)
+        max_val: Maximum allowed value (inclusive)
+    
+    Returns:
+        bool: True if invalid values found, False if all values are valid
+    """
+    cells = worksheet[range_string]
+    invalid_cells = []
+    
+    # Handle both single row/column and rectangular ranges
+    if not isinstance(cells[0], tuple):
+        cells = [cells]
+        
+    for row in cells:
+        for cell in row:
+            # Skip empty cells
+            if cell.value is None or cell.value == "":
+                continue
+                
+            try:
+                value = float(cell.value)
+                if value < min_val or value > max_val:
+                    invalid_cells.append(f"{cell.coordinate}={value}")
+            except (ValueError, TypeError):
+                invalid_cells.append(f"{cell.coordinate}=not a number")
+    
+    if invalid_cells:
+        warning_msg = f"Invalid values found in {range_string} (must be between {min_val} and {max_val}): {', '.join(invalid_cells)}"
+        print(Fore.YELLOW + warning_msg)
+        return True
+        
+    return False
+
+def check_range_for_valid_values(worksheet, range_string, allowed_values):
+    """
+    Check if all numeric values in the specified range match the allowed values list.
+    
+    Args:
+        worksheet: The Excel worksheet object
+        range_string: String specifying the range (e.g. "A1:D10")
+        allowed_values: List of allowed numeric values
+    
+    Returns:
+        bool: True if invalid values found, False if all values are valid
+    """
+    cells = worksheet[range_string]
+    invalid_cells = []
+    
+    # Handle both single row/column and rectangular ranges
+    if not isinstance(cells[0], tuple):
+        cells = [cells]
+        
+    for row in cells:
+        for cell in row:
+            # Skip empty cells
+            if cell.value is None or cell.value == "":
+                continue
+                
+            try:
+                value = float(cell.value)
+                if value not in allowed_values:
+                    invalid_cells.append(f"{cell.coordinate}={value}")
+            except (ValueError, TypeError):
+                invalid_cells.append(f"{cell.coordinate}=not a number")
+    
+    if invalid_cells:
+        warning_msg = f"Invalid values found in {range_string} (must be one of {allowed_values}): {', '.join(invalid_cells)}"
+        print(Fore.YELLOW + warning_msg)
+        return True
+        
+    return False
+
 init()
 
 print(Fore.LIGHTWHITE_EX+ "Building Closing Ceremony script")
@@ -216,8 +295,18 @@ for tourn_filename in directory_list:
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
 
+    if(check_range_for_valid_numbers(book["Robot Game Scores"], "C2:E" + str(numTeams + 1), 0, 455)):
+        print(f"There are invalid scores on the Robot Game Scores worksheet for Div {div}")
+        input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
+        sys.exit(1)
+
     if(check_range_for_empty_cells(book["Robot Design Input"], "D2:M" + str(numTeams + 1))):
         print(f"There are missing scores on the Robot Design Input worksheet for Div {div}")
+        input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
+        sys.exit(1)
+
+    if(check_range_for_valid_values(book["Robot Design Input"], "D2:M" + str(numTeams + 1), [1, 2, 3, 4])):
+        print(f"There are invalid values on the Robot Design Input worksheet for Div {div}")
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
 
@@ -226,8 +315,18 @@ for tourn_filename in directory_list:
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
 
+    if(check_range_for_valid_values(book["Core Values Input"], "N2:P" + str(numTeams + 1), [0, 2, 3, 4])):
+        print(f"There are invalid values on the Core Values Input worksheet for Div {div}")
+        input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
+        sys.exit(1)
+
     if(check_range_for_empty_cells(book["Innovation Project Input"], "D2:M" + str(numTeams + 1))):
         print(f"There are missing scores on the Innovation Project Input worksheet for Div {div}")
+        input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
+        sys.exit(1)
+
+    if(check_range_for_valid_values(book["Innovation Project Input"], "D2:M" + str(numTeams + 1), [1, 2, 3, 4])):
+        print(f"There are invalid values on the Innovation Project Input worksheet for Div {div}")
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
 
