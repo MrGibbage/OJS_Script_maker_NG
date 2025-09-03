@@ -305,7 +305,7 @@ for tourn_filename in directory_list:
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
 
-    if(check_range_for_valid_values(book["Robot Design Input"], "D2:M" + str(numTeams + 1), [1, 2, 3, 4])):
+    if(check_range_for_valid_values(book["Robot Design Input"], "D2:M" + str(numTeams + 1), [0, 1, 2, 3, 4])):
         print(f"There are invalid values on the Robot Design Input worksheet for Div {div}")
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
@@ -325,7 +325,7 @@ for tourn_filename in directory_list:
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
 
-    if(check_range_for_valid_values(book["Innovation Project Input"], "D2:M" + str(numTeams + 1), [1, 2, 3, 4])):
+    if(check_range_for_valid_values(book["Innovation Project Input"], "D2:M" + str(numTeams + 1), [0, 1, 2, 3, 4])):
         print(f"There are invalid values on the Innovation Project Input worksheet for Div {div}")
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
