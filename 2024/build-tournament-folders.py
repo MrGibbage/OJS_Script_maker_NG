@@ -123,10 +123,24 @@ def copy_files(item: pd.Series):
     # create a file list for the tournament folder
     directory = dir_path + "\\tournaments\\" + item["Short Name"]
     file_list = os.listdir(directory)
+    # Remove any files we don't want in the file_list
+    # in particular, we won't need the script_maker programs for two reasons
+    # 1) the script_maker program is the program they will be running, so it can't be missing
+    # 2) no need to check if the script_maker for other OS'es are present
+    try:
+        file_list.remove("script_maker-win.exe")
+    except:
+        pass
+
+    try:
+        file_list.remove("script_maker-mac")
+    except:
+        pass
     output_file = os.path.join(directory, "file_list.txt")
     with open(output_file, "w") as f:
         for filename in file_list:
             f.write(filename + "\n")
+        
 
 
 # edits the OJS spreadsheets with the correct tournament information
@@ -653,7 +667,7 @@ print("Checking to make sure *extra* files and folders are set up correctly")
 
 # Any files that are to be copied directly into each torunament folder should be added to this list
 extrafilelist: list[str] = [
-    dir_path + "\\script_maker.exe",
+    dir_path + "\\script_maker-win.exe",
     dir_path + "\\script_template.html.jinja",
     dir_path + "\\instructions.pdf",
 ]

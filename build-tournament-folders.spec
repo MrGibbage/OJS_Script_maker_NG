@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['2024\\build-tournament-folders.py'],
+    ['2025\\build-tournament-folders.py'],
     pathex=[],
     binaries=[],
     datas=[],
