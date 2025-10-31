@@ -1,4 +1,5 @@
-# To create an executable file, 
+# To create a windows executable file, 
+# first install pyinstaller, with
 # pip install pyinstaller
 # then run
 # .venv\Scripts\pyinstaller.exe -F 2025\build-tournament-folders.py
@@ -668,6 +669,7 @@ print("Checking to make sure *extra* files and folders are set up correctly")
 # Any files that are to be copied directly into each torunament folder should be added to this list
 extrafilelist: list[str] = [
     dir_path + "\\script_maker-win.exe",
+    dir_path + "\\script_maker-mac",
     dir_path + "\\script_template.html.jinja",
     dir_path + "\\instructions.pdf",
 ]

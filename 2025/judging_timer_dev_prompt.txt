@@ -1,0 +1,142 @@
+Goal
+Rebuild a complete single-page web app (HTML/CSS/JS) that implements a VA-DC FLL judging-room scheduler + session timer with the exact behaviors we've discussed. Deliver a polished, accessible, responsive, self-contained implementation (single index.html is fine) that persists schedules in browser localStorage and handles both scheduled and ad-hoc (Start Now / manual) sessions.
+
+High-level summary
+- A "day" schedule with up to 7 team slots. Each slot has:
+  - teamName (text)
+  - startTime (HH:MM local time)
+- Each scheduled team has:
+  - 30-minute judging session (fixed)
+  - 15-minute judge discussion immediately after judging
+- The app has three main screens:
+  1) Day Schedule Editor — edit up to 7 slots (team name + time picker). Accessible from other screens via "Edit".
+     - Validate and disallow overlapping 30-minute judging windows (hard error).
+     - Warn (but allow) if a 15-minute discussion overlaps next team's judging.
+     - Highlight conflicting rows.
+     - Save schedule to localStorage under key: "judgingDaySchedule_v2".
+     - Provide Save, Cancel, and Clear All. Provide a "Fill Example" button to populate a test schedule.
+  2) Judging In Session — shown when current time is inside a 30-minute judging window (scheduled or manual).
+     - Displays team name, slot, judging elapsed (count-up) and the six internal segments (each row).
+     - Internal segments (fixed) and timings (relative to judging start):
+       - Introduction 0–2 min
+       - Team Innovation Project presentation 2–7 min
+       - Innovation project Q&A 7–12 min
+       - Team Robot design presentation 12–17 min
+       - Robot Design Q&A 17–22 min
+       - Judging feedback 22–30 min
+     - Each internal segment shows exactly one status: "Done", "MM:SS remaining", or "MM:SS not started".
+     - Provide an "Edit schedule" button that opens the Day Schedule Editor.
+     - Provide an "End / Cancel" button (only visible when a judging session is active) to end judging early and immediately start the 15-minute discussion:
+       - For scheduled sessions: record an override (persisted in localStorage under key "judgingOverrides_v1") so the saved schedule is not lost but the judging is considered ended now and discussion timers start.
+       - For temporary/manual sessions: end judging now and start discussion in memory (no storage required).
+       - Require confirmation before applying the override.
+       - Provide an "undo" possibility (optional) — at minimum explain where to extend if needed.
+  3) In-between / Idle Screen — shown when no judging session is active:
+     - Shows live local time, large countdown to the next scheduled start ("Next event starts in: MM:SS"), and next team name/start time.
+     - Shows a "Start Now" button:
+       - Disabled when any judging session (scheduled or manual) is currently active.
+       - If next scheduled team exists:
+         - Ask user whether to (A) start now and update saved schedule to current time (persist change) or (B) start temporarily (do not save).
+         - If (A) update schedule for that slot to current local time and start the session.
+         - If (B) start a temporary (manual) session in memory (manualSession) lasting 30 minutes.
+       - If no scheduled team exists:
+         - Prompt for a team name and start a temporary manual session in memory.
+     - "Edit schedule" button opens editor.
+- Behavior for automatic transitions:
+  - App computes today's dates for each saved "HH:MM".
+  - Every ~250 ms update loop:
+    - If now < next.start => Idle screen (show countdown).
+    - If start <= now < start + 30 min => Judging screen for that slot (auto expand segments).
+    - If start + 30 min <= now < start + 45 min => show discussion (Idle screen may show discussion remaining).
+    - After discussion => mark Done for that slot.
+  - Manual temporary sessions (started via Start Now) are stored in memory (manualSession object) and follow same 30m judging / 15m discussion durations.
+  - When a scheduled session is ended early via "End / Cancel," persist override to "judgingOverrides_v1" with ISO timestamp to mark judgingEnd and compute discussionEnd accordingly. The override survives reloads.
+
+UI and styling
+- Single-page, responsive and accessible layout centered left-right and placed near top of viewport.
+- Provide a tasteful logo (use the URL provided: https://va-dcfll.org/app/uploads/2020/05/FIRST-FLL-VA-DC-h.png) displayed small and non-distracting in the header with alt text.
+- Provide a CSS root variable --scale to adjust global UI size; default 1.5. Make the UI scale-friendly and include mobile breakpoints.
+- Use a clear card-like layout with good contrast and color-coded statuses:
+  - Done (green), Current (warning color), Upcoming / Not started (muted).
+- All internal segment rows must be single-line title (ellipsis) + single-line status. Avoid wrapping where possible; show full text on hover (title attribute).
+- Provide Start Now, Edit, Save Example, Clear Saved, Save, Cancel, Clear All buttons (as in the earlier app).
+- Keyboard shortcuts:
+  - 'E' to open editor (when not in text input).
+  - Spacebar reserved for Start/Pause only for any built-in manual timer if included — otherwise don't hijack Space in forms.
+- Accessibility:
+  - Use aria-live regions for schedule updates.
+  - Buttons and interactive elements must be focusable and labeled.
+  - Provide alt text for the logo and tooltips (title attributes) for truncated text.
+
+Data model and storage
+- Persisted keys and formats:
+  - "judgingDaySchedule_v2": JSON array of objects { slot: number, teamName: string, startTime: "HH:MM" }.
+  - "judgingOverrides_v1": JSON object keyed by slot index containing override data, e.g. { "<slot>": { judgingEndIso: "2025-10-31T08:20:00.000Z" } }.
+- Manual temporary sessions should not be persisted (in-memory only).
+- When "Start and update saved schedule" is selected, update the saved schedule for that slot with the current time in "HH:MM" local format.
+
+Validation & UX rules
+- On Save in editor:
+  - Compute today’s startDate / judgingEnd / discussionEnd for each non-empty time.
+  - Reject Save (hard error) if any 30-minute judging windows overlap. Display an explicit multiline error summarizing conflicting pairs and highlight conflict rows with a visible red outline/class "conflict".
+  - If any discussion-end overlaps a subsequent judging start, show a warning (distinct styling) but allow Save.
+  - Provide clear, explicit messages. Do not allow silent failures.
+- Prevent starting session via "Start Now" when any judging (real or manual) is active. Disable the button in that case.
+- When user applies "End / Cancel" on active scheduled session:
+  - Confirm action.
+  - If confirmed, save an override for that slot (persisted) where judgingEndIso = now.toISOString(). Recompute discussionEnd = judgingEnd + 15m.
+  - Immediately show discussion countdown.
+
+Implementation notes
+- Use performance.now() only when precise elapsed is needed for manual timers; for schedule comparisons use Date objects for clarity.
+- Keep the segments array fixed in code (with startMin/endMin/durationSec).
+- Use setInterval(250ms) update loop or requestAnimationFrame with throttling for UI responsiveness.
+- Keep code well-commented; expose a small global object (e.g., window.JudgingApp) for debugging that can list or reload schedule data.
+- Test behavior across:
+  - No schedule
+  - Partially filled schedule
+  - Full schedule with overlapping times (ensure validation prevents save)
+  - Start Now behaviors (save vs temporary)
+  - End / Cancel flow for both scheduled and manual sessions
+  - Page reloads during active scheduled session, after override applied, and during manual session (manual should not survive reload)
+- Provide graceful fallback for browsers that don't support <input type="time"> (basic HH:MM text allowed).
+
+Deliverable
+- A single self-contained index.html (preferred) OR index.html + separate CSS and JS files.
+- Include at top of file(s) a short usage/installation README comment: how to run (open file in browser), storage keys used, and keyboard shortcuts.
+- All code must be original (not copied verbatim from third-party code except allowed small asset use such as the logo URL).
+
+Acceptance criteria (automated/manual checks)
+- Opening the page shows local time and header with logo.
+- Editor Button opens Editor screen and remains open until user saves or cancels.
+- Editor rejects overlapping judging windows and highlights conflicts.
+- Saving a valid schedule persists to localStorage and the app uses today's date to compute start/end times.
+- When now is inside a saved 30min judging window, the Judging screen is shown with correct elapsed and per-segment statuses.
+- When now is between sessions, Idle screen shows countdown to next session and Start Now button is enabled only if no active judging.
+- Start Now allows "Save and start" (updates saved schedule) OR "Start temporarily" (no saved change). If no scheduled team, Start Now prompts for a manual team name and starts a temporary session.
+- "End / Cancel" during judging ends judging early and starts discussion, persisting override for scheduled sessions.
+- Overrides persist page reload and cause the judging to be considered ended at the override time.
+- No functionality is lost if the page is reloaded while a scheduled session is running (except manual sessions).
+- UI is responsive, accessible, and visually similar to earlier mockups (color-coded statuses, non-wrapping titles with ellipsis, single-line status text).
+
+Test scenarios (step-by-step)
+- Scenario A (basic scheduled flow):
+  1) Save schedule with Team A at 08:00, Team B 08:45, Team C 09:30.
+  2) Set system clock to 08:00 local; open page — app automatically shows Judging screen for Team A with segments updating.
+  3) Wait 30 minutes -> app shows discussion countdown.
+  4) After discussion, Team A row shows Done; Idle screen shows countdown to next Team B.
+- Scenario B (validation):
+  1) In editor set Team X at 08:00 and Team Y at 08:15 (overlap) -> Save should be blocked and both rows highlighted with clear error message.
+- Scenario C (Start Now):
+  1) On Idle screen, click Start Now, choose "update and save" for next scheduled team -> saved schedule updated to current time and Judging screen shown.
+  2) Alternatively pick temporary start -> manual session started in memory.
+- Scenario D (End/Cancel override):
+  1) While Team is judging, click End/Cancel -> confirm -> judging ends immediately, discussion starts, override saved if scheduled.
+
+Notes for implementer
+- Keep functions small and testable: buildEditorRows(), collectEditorSchedule(), validateSchedule(), computeDatesForSchedule(), computeDatesForScheduleWithOverrides(), renderIdle(), renderJudging(), startNow(), endNow(), saveOverrides().
+- Make time math explicit (ms conversions) and avoid implicit timezone conversions except when converting "HH:MM" to today's Date (local).
+- Use CSS variables for theme colors and a single --scale root variable.
+- Add a small readme comment at top of file describing storage keys and how to reset (localStorage.removeItem(...)).
+
+If anything above is unclear, modify or expand the acceptance tests. Otherwise, produce a complete working single-file app (index.html) that implements all of these behaviors, comments, and a brief usage note at the top.

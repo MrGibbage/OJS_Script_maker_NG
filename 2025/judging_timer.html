@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Judging Day Scheduler & Timer</title>
+  <style>
+    :root{
+      --scale: 1.5;
+      --bg:#071026;
+      --card: rgba(255,255,255,0.02);
+      --muted:#9aa6bb;
+      --accent:#ffb86b;
+      --good:#20c997;
+      --warn:#ffb86b;
+      --bad:#ef476f;
+      --text:#e6eef8;
+      font-family: Inter, "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;margin:0;background: linear-gradient(180deg,#071025,#071a2d);color:var(--text)}
+    .outer{display:flex;justify-content:center;align-items:flex-start;padding:18px;min-height:100vh;box-sizing:border-box}
+    .wrap{
+      transform: scale(var(--scale));
+      transform-origin: center top;
+      width: calc(100% / var(--scale));
+      max-width: calc(1200px / var(--scale));
+      padding:26px;border-radius:12px;background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      box-shadow: 0 6px 30px rgba(2,6,23,0.6);box-sizing:border-box;
+    }
+
+    header{display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap}
+    /* new header-left container so logo + times align nicely */
+    .header-left{display:flex;align-items:center;gap:12px;min-width:0}
+    #logo{height:40px;width:auto;border-radius:6px;opacity:0.98;box-shadow:0 1px 6px rgba(0,0,0,0.35)}
+    .left{display:flex;flex-direction:column;min-width:0}
+    .local-time{font-size:16px;color:var(--muted);white-space:nowrap;}
+    .elapsed{margin-top:6px;font-weight:700;font-size:28px;display:flex;gap:12px;align-items:center;white-space:nowrap}
+    .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    button{background:var(--card);color:var(--text);border:1px solid rgba(255,255,255,0.04);padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap}
+    button.primary{background: linear-gradient(90deg,var(--accent), #ff9f43);color:#061220;border:none}
+    button.danger{background: rgba(239,71,111,0.08);color:var(--bad);border:1px solid rgba(239,71,111,0.14)}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04)}
+
+    main{margin-top:18px}
+    .small{font-size:13px;color:var(--muted);margin-bottom:10px}
+
+    /* Idle (in-between) screen */
+    #idleView{display:none;padding:18px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
+    #idleView .big{font-size:48px;font-weight:800;color:var(--text);margin-top:6px}
+    #idleView .sub{font-size:18px;color:var(--muted);margin-top:6px}
+
+    /* Judging in session screen */
+    #judgingView{display:none;padding:18px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
+    #judgingHeader{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    #judgingHeader .team{font-size:22px;font-weight:800}
+    #judgingHeader .timers{display:flex;flex-direction:column;align-items:flex-end}
+    #judgingHeader .timers .big{font-size:30px;font-weight:800}
+    .segments{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+    .segment{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
+    .segment .seg-title{font-weight:700;color:var(--text);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .seg-status{font-weight:700;color:var(--muted);font-size:14px;white-space:nowrap}
+    .seg-status.done{color:var(--good)}
+    .seg-status.current{color:var(--warn)}
+    .seg-status.upcoming{color:var(--muted)}
+
+    /* Editor */
+    .editor{display:none;margin-top:8px;border-radius:10px;padding:14px;background: rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
+    .editor .row{display:flex;align-items:center;gap:10px;padding:8px 0}
+    .editor label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    .editor input[type="text"]{flex:1;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:rgba(0,0,0,0.12);color:var(--text)}
+    .editor input[type="time"]{padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:rgba(0,0,0,0.12);color:var(--text)}
+    .editor .hint{font-size:13px;color:var(--muted);margin-top:8px}
+    .error{color:var(--bad);font-weight:700;margin-top:8px}
+    .warning{color:var(--accent);font-weight:700;margin-top:8px}
+    .conflict{border:2px solid rgba(239,71,111,0.22);box-shadow:0 0 0 3px rgba(239,71,111,0.04) inset}
+
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+
+    @media (max-width:800px){ :root { --scale: 1.2; } }
+    @media (max-width:480px){ :root { --scale: 1.0; } .segments{gap:6px} .segment{padding:8px} }
+
+    button:focus,input:focus{outline:2px solid rgba(255,255,255,0.06);outline-offset:2px}
+  </style>
+</head>
+<body>
+  <div class="outer">
+    <div class="wrap" role="application" aria-label="Judging day scheduler">
+
+      <header>
+        <div class="header-left">
+          <!-- tasteful small logo linked to the source; kept small and accessible -->
+          <a href="https://va-dcfll.org/app/uploads/2020/05/FIRST-FLL-VA-DC-h.png" target="_blank" rel="noopener noreferrer" title="FIRST FLL VA/DC logo">
+            <img id="logo" src="https://va-dcfll.org/app/uploads/2020/05/FIRST-FLL-VA-DC-h.png" alt="FIRST FLL VA/DC logo">
+          </a>
+
+          <div class="left">
+            <div class="local-time" id="localTime">Local time: --:--</div>
+            <div class="elapsed" id="headerTimer">
+              <div id="headerLabel">Next event starts in:</div>
+              <div id="headerClock">00:00</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="openEditorBtn" class="ghost" title="Edit day schedule">Edit Day Schedule</button>
+          <button id="saveAsExampleBtn" class="ghost" title="Fill example schedule">Fill Example</button>
+          <button id="clearSavedBtn" class="danger" title="Clear saved schedule">Clear Saved</button>
+        </div>
+      </header>
+
+      <main>
+        <div class="small">Judging sessions are 30 minutes long. Nominally there will be 15 minutes between teams.</div>
+
+        <!-- Idle / in-between screen -->
+        <section id="idleView" aria-live="polite">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <div>
+              <div style="font-size:18px;color:var(--muted)">Waiting for next team</div>
+              <div class="sub" id="idleSub">No events scheduled</div>
+            </div>
+            <div style="text-align:right">
+              <div class="big" id="idleClock">00:00</div>
+              <div class="sub" id="idleTimeNow" style="margin-top:6px;color:var(--muted)"></div>
+              <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">
+                <button id="idleEditBtn" class="primary">Edit schedule</button>
+                <button id="startNowBtn" class="primary" title="Start a judging session now">Start Now</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Judging in session screen -->
+        <section id="judgingView" aria-live="polite">
+          <div id="judgingHeader">
+            <div>
+              <div class="team" id="judgingTeam">Team Name</div>
+              <div style="font-size:13px;color:var(--muted)" id="judgingSlot">Slot</div>
+            </div>
+            <div class="timers">
+              <div style="font-size:13px;color:var(--muted)">Judging elapsed</div>
+              <div class="big" id="judgingElapsed">00:00</div>
+              <div style="margin-top:8px;text-align:right;display:flex;gap:8px;justify-content:flex-end;align-items:center">
+                <button id="judgingEditBtn" class="primary">Edit schedule</button>
+                <button id="judgingCancelBtn" class="danger" title="End judging early and start discussion">End / Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="segments" id="segmentsList">
+            <!-- Segment rows injected here -->
+          </div>
+        </section>
+
+        <!-- Editor -->
+        <section class="editor" id="editorView" aria-live="polite">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-weight:800">Day Schedule Editor (up to 7 teams)</div>
+            <div style="font-size:13px;color:var(--muted)">Saved to local storage</div>
+          </div>
+
+          <div id="editorRows">
+            <!-- editor rows -->
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:12px">
+            <button id="saveDayBtn" class="primary">Save Day Schedule</button>
+            <button id="cancelDayBtn" class="ghost">Cancel</button>
+            <button id="clearDayBtn" class="danger">Clear All</button>
+          </div>
+
+          <div id="editorError" class="error" style="display:none"></div>
+          <div id="editorWarn" class="warning" style="display:none"></div>
+
+          <div class="hint">Rules: Judging sessions are 30 minutes. The editor will reject schedules whose 30-minute judging windows overlap. A 15-minute discussion after each judging is allowed but if it overlaps the next judging you'll receive a warning.</div>
+        </section>
+
+        <footer>Built for VA-DC FLL Judges.</footer>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // --- Configuration ---
+    const MAX_TEAMS = 7;
+    const JUDGING_MIN = 30;
+    const DISCUSSION_MIN = 15;
+    const STORAGE_KEY = 'judgingDaySchedule_v2';
+    const OVERRIDES_KEY = 'judgingOverrides_v1';
+
+    // Segments for a judging session
+    const segments = [
+      { id: 'intro', title: 'Introduction', startMin: 0, endMin: 2 },
+      { id: 'team-project', title: 'Team Innovation Project presentation', startMin: 2, endMin: 7 },
+      { id: 'proj-qa', title: 'Innovation project question and answer', startMin: 7, endMin: 12 },
+      { id: 'robot-design', title: 'Team Robot design presentation', startMin: 12, endMin: 17 },
+      { id: 'design-qa', title: 'Robot Design question and answer', startMin: 17, endMin: 22 },
+      { id: 'feedback', title: 'Judging feedback', startMin: 22, endMin: 30 }
+    ];
+    segments.forEach(s => { s.startSec = s.startMin*60; s.endSec = s.endMin*60; s.durationSec = s.endSec - s.startSec; });
+
+    // --- DOM refs ---
+    const localTimeEl = document.getElementById('localTime');
+    const headerLabel = document.getElementById('headerLabel');
+    const headerClock = document.getElementById('headerClock');
+
+    const idleView = document.getElementById('idleView');
+    const idleClock = document.getElementById('idleClock');
+    const idleSub = document.getElementById('idleSub');
+    const idleTimeNow = document.getElementById('idleTimeNow');
+    const idleEditBtn = document.getElementById('idleEditBtn');
+    const startNowBtn = document.getElementById('startNowBtn');
+
+    const judgingView = document.getElementById('judgingView');
+    const judgingTeam = document.getElementById('judgingTeam');
+    const judgingSlot = document.getElementById('judgingSlot');
+    const judgingElapsed = document.getElementById('judgingElapsed');
+    const segmentsList = document.getElementById('segmentsList');
+    const judgingEditBtn = document.getElementById('judgingEditBtn');
+    const judgingCancelBtn = document.getElementById('judgingCancelBtn');
+
+    const editorView = document.getElementById('editorView');
+    const editorRows = document.getElementById('editorRows');
+    const saveDayBtn = document.getElementById('saveDayBtn');
+    const cancelDayBtn = document.getElementById('cancelDayBtn');
+    const clearDayBtn = document.getElementById('clearDayBtn');
+    const openEditorBtn = document.getElementById('openEditorBtn');
+    const saveAsExampleBtn = document.getElementById('saveAsExampleBtn');
+    const clearSavedBtn = document.getElementById('clearSavedBtn');
+    const editorError = document.getElementById('editorError');
+    const editorWarn = document.getElementById('editorWarn');
+
+    // --- State ---
+    let editorOpen = false;
+    let mainInterval = null;
+
+    // manualSession: temporary manual session state
+    let manualSession = null; // { slot, teamName, startDate:Date, judgingEnd:Date, discussionEnd:Date, temp:true }
+
+    // overrides: { [slot]: { judgingEndIso: string } } persisted to localStorage as needed
+    function loadOverrides(){ try { return JSON.parse(localStorage.getItem(OVERRIDES_KEY) || '{}'); } catch(e){ return {}; } }
+    function saveOverrides(obj){ localStorage.setItem(OVERRIDES_KEY, JSON.stringify(obj || {})); }
+
+    // --- Utilities ---
+    function pad2(n){return String(n).padStart(2,'0');}
+    function fmtMS(sec){ if(sec<0) sec=0; const m=Math.floor(sec/60); const s=Math.floor(sec%60); return String(m)+':'+String(s).padStart(2,'0'); }
+    function nowDate(){ return new Date(); }
+
+    function tickLocalTime(){
+      const now = new Date();
+      const options = { hour: 'numeric', minute: '2-digit', hour12: true };
+      const formatted = now.toLocaleTimeString([], options).replace(/\s+/, '');
+      localTimeEl.textContent = 'Local time: ' + formatted;
+      idleTimeNow.textContent = 'Now: ' + formatted;
+    }
+    tickLocalTime();
+    setInterval(tickLocalTime, 1000);
+
+    // --- Storage ---
+    function loadDaySchedule(){
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return [];
+      try { return JSON.parse(raw); } catch(e){ console.warn('bad schedule', e); return []; }
+    }
+    function saveDaySchedule(sched){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sched));
+    }
+    function clearDaySchedule(){
+      localStorage.removeItem(STORAGE_KEY);
+    }
+
+    // --- Editor building & validation ---
+    function buildEditorRows(){
+      editorRows.innerHTML = '';
+      const saved = loadDaySchedule();
+      for(let i=0;i<MAX_TEAMS;i++){
+        const entry = saved.find(s => s.slot === i) || { slot: i, teamName: '', startTime: '' };
+
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.dataset.slot = i;
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.justifyContent = 'space-between';
+        row.style.gap = '12px';
+
+        const left = document.createElement('div');
+        left.style.flex = '1';
+        left.innerHTML = `<div style="font-weight:700;color:var(--text)">${i+1}. Team</div><div style="font-size:13px;color:var(--muted);margin-top:6px">Slot ${i+1}</div>`;
+
+        const inputs = document.createElement('div');
+        inputs.style.display = 'flex';
+        inputs.style.gap = '8px';
+        inputs.style.alignItems = 'center';
+        inputs.style.flex = '2';
+        inputs.style.justifyContent = 'flex-end';
+
+        const teamInput = document.createElement('input');
+        teamInput.type = 'text';
+        teamInput.placeholder = 'Team name';
+        teamInput.value = entry.teamName || '';
+        teamInput.id = `day-team-${i}`;
+
+        const timeInput = document.createElement('input');
+        timeInput.type = 'time';
+        timeInput.step = 60;
+        timeInput.value = entry.startTime || '';
+        timeInput.id = `day-time-${i}`;
+
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'ghost';
+        clearBtn.textContent = 'Clear';
+        clearBtn.onclick = () => { teamInput.value=''; timeInput.value=''; row.classList.remove('conflict'); };
+
+        inputs.appendChild(teamInput);
+        inputs.appendChild(timeInput);
+        inputs.appendChild(clearBtn);
+
+        row.appendChild(left);
+        row.appendChild(inputs);
+        editorRows.appendChild(row);
+      }
+      editorError.style.display = 'none';
+      editorWarn.style.display = 'none';
+    }
+
+    function collectEditorSchedule(){
+      const out = [];
+      for(let i=0;i<MAX_TEAMS;i++){
+        const teamInput = document.getElementById(`day-team-${i}`);
+        const timeInput = document.getElementById(`day-time-${i}`);
+        out.push({
+          slot: i,
+          teamName: teamInput ? teamInput.value.trim() : '',
+          startTime: timeInput ? timeInput.value : ''
+        });
+      }
+      return out;
+    }
+
+    // Compute Date objects for today for each scheduled item (start / judgingEnd / discussionEnd)
+    function computeDatesForSchedule(schedule, today = new Date()){
+      return schedule.map(entry => {
+        let startDate = null;
+        if(entry.startTime && /^\d{2}:\d{2}$/.test(entry.startTime)){
+          const [hh, mm] = entry.startTime.split(':').map(Number);
+          startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hh, mm, 0, 0);
+        }
+        const judgingEnd = startDate ? new Date(startDate.getTime() + JUDGING_MIN*60*1000) : null;
+        const discussionEnd = judgingEnd ? new Date(judgingEnd.getTime() + DISCUSSION_MIN*60*1000) : null;
+        return {
+          ...entry,
+          startDate,
+          judgingEnd,
+          discussionEnd
+        };
+      }).sort((a,b)=>{
+        if(!a.startDate && !b.startDate) return a.slot - b.slot;
+        if(!a.startDate) return 1;
+        if(!b.startDate) return -1;
+        return a.startDate.getTime() - b.startDate.getTime();
+      });
+    }
+
+    // Validate: ensure no judging windows overlap (hard error). Also detect discussion-overlaps (warning).
+    function validateSchedule(schedule){
+      // reset previous highlights
+      Array.from(editorRows.children).forEach(row => row.classList.remove('conflict'));
+      editorError.style.display = 'none';
+      editorWarn.style.display = 'none';
+
+      const dates = computeDatesForSchedule(schedule);
+      // collect only entries with startDate
+      const scheduled = dates.filter(d => d.startDate);
+      const errors = [];
+      const warnings = [];
+
+      // check judging overlaps: (a.start < b.judgeEnd) && (b.start < a.judgeEnd)
+      for(let i=0;i<scheduled.length;i++){
+        for(let j=i+1;j<scheduled.length;j++){
+          const a = scheduled[i], b = scheduled[j];
+          if(a.startDate && b.startDate){
+            if(a.startDate.getTime() < b.judgingEnd.getTime() && b.startDate.getTime() < a.judgingEnd.getTime()){
+              // judging windows overlap -> error
+              errors.push({ a, b });
+            } else {
+              // check if discussion overlaps next judging (b.start < a.discussionEnd)
+              if(a.discussionEnd && b.startDate && b.startDate.getTime() < a.discussionEnd.getTime()){
+                warnings.push({ a, b });
+              }
+            }
+          }
+        }
+      }
+
+      // highlight conflict rows
+      if(errors.length){
+        errors.forEach(pair => {
+          const arow = Array.from(editorRows.children).find(r => Number(r.dataset.slot) === pair.a.slot);
+          const brow = Array.from(editorRows.children).find(r => Number(r.dataset.slot) === pair.b.slot);
+          if(arow) arow.classList.add('conflict');
+          if(brow) brow.classList.add('conflict');
+        });
+        const lines = errors.map(({a,b}) => {
+          return `'${a.teamName || '(No team)'}' (slot ${a.slot+1} @ ${a.startTime}) conflicts with '${b.teamName || '(No team)'}' (slot ${b.slot+1} @ ${b.startTime}) — judging windows overlap.`;
+        });
+        editorError.textContent = 'Error: Overlapping judging sessions detected:\n' + lines.join('\n');
+        editorError.style.display = 'block';
+      }
+
+      if(warnings.length){
+        warnings.forEach(pair => {
+          const brow = Array.from(editorRows.children).find(r => Number(r.dataset.slot) === pair.b.slot);
+          if(brow) brow.classList.add('conflict');
+        });
+        const lines = warnings.map(({a,b}) => {
+          return `'${a.teamName || '(No team)'}' (slot ${a.slot+1}) discussion overlaps with the next judging session '${b.teamName || '(No team)'}' (slot ${b.slot+1}). Consider spacing these by ${JUDGING_MIN+DISCUSSION_MIN} minutes.`;
+        });
+        editorWarn.textContent = 'Warning: Discussion-overlap(s):\n' + lines.join('\n');
+        editorWarn.style.display = 'block';
+      }
+
+      return { valid: errors.length === 0, errors, warnings };
+    }
+
+    // --- Editor actions ---
+    openEditorBtn.addEventListener('click', () => {
+      buildEditorRows();
+      showEditor(true);
+    });
+    idleEditBtn.addEventListener('click', () => {
+      buildEditorRows();
+      showEditor(true);
+    });
+    judgingEditBtn.addEventListener('click', () => {
+      buildEditorRows();
+      showEditor(true);
+    });
+
+    saveDayBtn.addEventListener('click', () => {
+      const schedule = collectEditorSchedule();
+      const validation = validateSchedule(schedule);
+      if(!validation.valid){
+        // do not save
+        return;
+      }
+      // save (warnings allowed)
+      saveDaySchedule(schedule);
+      showEditor(false);
+      // immediate UI update
+      updateLoop();
+    });
+
+    cancelDayBtn.addEventListener('click', () => {
+      showEditor(false);
+    });
+
+    clearDayBtn.addEventListener('click', () => {
+      if(!confirm('Clear all schedule entries? This will remove saved schedule from this browser.')) return;
+      clearDaySchedule();
+      showEditor(false);
+      updateLoop();
+    });
+
+    saveAsExampleBtn.addEventListener('click', () => {
+      // Example: start times spaced 45 minutes apart beginning at 08:00 local today
+      const today = new Date();
+      const example = [];
+      const hhStart = 8;
+      for(let i=0;i<MAX_TEAMS;i++){
+        const dt = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hhStart, 0, 0, 0);
+        dt.setMinutes(dt.getMinutes() + i * (JUDGING_MIN + DISCUSSION_MIN));
+        const hh = pad2(dt.getHours()), mm = pad2(dt.getMinutes());
+        example.push({ slot: i, teamName: `Team ${i+1}`, startTime: `${hh}:${mm}` });
+      }
+      saveDaySchedule(example);
+      alert('Example schedule saved.');
+      updateLoop();
+    });
+
+    clearSavedBtn.addEventListener('click', () => {
+      if(!confirm('Clear saved schedule from this browser?')) return;
+      clearDaySchedule();
+      updateLoop();
+    });
+
+    // --- Editor visibility control ---
+    function showEditor(show){
+      editorOpen = !!show;
+      editorView.style.display = show ? 'block' : 'none';
+      if(show){
+        idleView.style.display = 'none';
+        judgingView.style.display = 'none';
+      } else {
+        editorView.style.display = 'none';
+      }
+    }
+
+    // --- "Start Now" behavior (unchanged) ---
+    startNowBtn.addEventListener('click', async () => {
+      if(editorOpen) return;
+      // Prevent starting if any judging active
+      const saved = loadDaySchedule();
+      const dates = computeDatesForSchedule(saved);
+      const now = new Date();
+      const nowMs = now.getTime();
+      const anyRealJudging = dates.some(d => d.startDate && d.judgingEnd && nowMs >= d.startDate.getTime() && nowMs < d.judgingEnd.getTime());
+      if(anyRealJudging || (manualSession && isManualJudgingActive(new Date()))) {
+        alert('A judging session is already in progress. Cannot start another.');
+        return;
+      }
+
+      // find next upcoming start
+      let nextUpcoming = null;
+      for(const d of dates){
+        if(d.startDate && nowMs < d.startDate.getTime()){
+          nextUpcoming = d;
+          break;
+        }
+      }
+
+      if(nextUpcoming){
+        const teamLabel = nextUpcoming.teamName || `(Slot ${nextUpcoming.slot+1})`;
+        const saveChoice = confirm(`Start '${teamLabel}' now and update the saved schedule? (OK = update/save, Cancel = choose temporary start)`);
+        if(saveChoice){
+          const hhmm = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+          const newSched = saved.map(s => {
+            if(s.slot === nextUpcoming.slot){
+              return { ...s, startTime: hhmm };
+            }
+            return s;
+          });
+          saveDaySchedule(newSched);
+          manualSession = null;
+          alert(`${teamLabel} start time updated to ${hhmm} and session started.`);
+          updateLoop();
+          return;
+        } else {
+          const tempStart = confirm(`Start '${teamLabel}' now temporarily (will NOT change saved schedule)? (OK = start temporarily, Cancel = abort)`);
+          if(tempStart){
+            manualSession = {
+              slot: nextUpcoming.slot,
+              teamName: nextUpcoming.teamName || `(Slot ${nextUpcoming.slot+1})`,
+              startDate: now,
+              judgingEnd: new Date(now.getTime() + JUDGING_MIN*60*1000),
+              discussionEnd: new Date(now.getTime() + (JUDGING_MIN+DISCUSSION_MIN)*60*1000),
+              temp: true
+            };
+            updateLoop();
+            return;
+          } else {
+            return;
+          }
+        }
+      } else {
+        const teamName = prompt('No scheduled team found. Enter a team name to start a temporary session (Cancel to abort):', 'Manual Session');
+        if(!teamName) return;
+        manualSession = {
+          slot: -1,
+          teamName: teamName.trim() || 'Manual Session',
+          startDate: now,
+          judgingEnd: new Date(now.getTime() + JUDGING_MIN*60*1000),
+          discussionEnd: new Date(now.getTime() + (JUDGING_MIN+DISCUSSION_MIN)*60*1000),
+          temp: true
+        };
+        updateLoop();
+        return;
+      }
+    });
+
+    function isManualJudgingActive(now = new Date()){
+      if(!manualSession) return false;
+      const startMs = manualSession.startDate.getTime();
+      const judgeEndMs = manualSession.judgingEnd ? manualSession.judgingEnd.getTime() : (startMs + JUDGING_MIN*60*1000);
+      return now.getTime() >= startMs && now.getTime() < judgeEndMs;
+    }
+
+    // --- Cancel / End button handler ---
+    judgingCancelBtn.addEventListener('click', () => {
+      if(editorOpen) return;
+      const now = new Date();
+      // Determine if a manual session is active
+      if(manualSession && isManualJudgingActive(now)){
+        const ok = confirm(`End judging for '${manualSession.teamName}' now and start the ${DISCUSSION_MIN}-minute discussion?`);
+        if(!ok) return;
+        // set judgingEnd to now and discussionEnd accordingly
+        manualSession.judgingEnd = now;
+        manualSession.discussionEnd = new Date(now.getTime() + DISCUSSION_MIN*60*1000);
+        updateLoop();
+        return;
+      }
+
+      // Otherwise find the active scheduled session (if any)
+      const saved = loadDaySchedule();
+      const dates = computeDatesForSchedule(saved);
+      const nowMs = now.getTime();
+      let active = null;
+      for(const d of dates){
+        if(d.startDate && d.judgingEnd && nowMs >= d.startDate.getTime() && nowMs < d.judgingEnd.getTime()){
+          active = d; break;
+        }
+      }
+      if(!active){
+        alert('No active scheduled judging session to cancel.');
+        return;
+      }
+      const teamLabel = active.teamName || `(Slot ${active.slot+1})`;
+      const ok = confirm(`End judging for '${teamLabel}' now and begin discussion? This will record an override so the saved schedule treats judging as ended now.`);
+      if(!ok) return;
+      // Save override (judgingEnd override)
+      const overrides = loadOverrides();
+      overrides[active.slot] = { judgingEndIso: now.toISOString() };
+      saveOverrides(overrides);
+      alert(`Judging for '${teamLabel}' ended early; discussion started.`);
+      updateLoop();
+    });
+
+    // --- Main runtime: which screen to show ---
+    function computeDatesForScheduleWithOverrides(schedule){
+      const dates = computeDatesForSchedule(schedule);
+      const overrides = loadOverrides();
+      for(const d of dates){
+        if(d && typeof d.slot !== 'undefined' && overrides && overrides[d.slot] && overrides[d.slot].judgingEndIso){
+          const overrideDate = new Date(overrides[d.slot].judgingEndIso);
+          if(!isNaN(overrideDate.getTime())){
+            d.judgingEnd = overrideDate;
+            d.discussionEnd = new Date(overrideDate.getTime() + DISCUSSION_MIN*60*1000);
+          }
+        }
+      }
+      return dates;
+    }
+
+    // Render idle (in-between) screen
+    function renderIdle(nextUpcoming, now){
+      if(editorOpen) return;
+
+      idleView.style.display = 'block';
+      judgingView.style.display = 'none';
+      editorView.style.display = 'none';
+
+      // enable/disable Start Now depending on whether any judging is active (manual or real)
+      const saved = loadDaySchedule();
+      const dates = computeDatesForScheduleWithOverrides(saved);
+      const nowMs = now.getTime();
+      const anyJudgingActive = dates.some(d => d.startDate && d.judgingEnd && nowMs >= d.startDate.getTime() && nowMs < d.judgingEnd.getTime()) || isManualJudgingActive(now);
+      startNowBtn.disabled = !!anyJudgingActive;
+
+      if(!nextUpcoming){
+        headerLabel.textContent = 'No upcoming events:';
+        headerClock.textContent = '00:00';
+        idleClock.textContent = '00:00';
+        idleSub.textContent = 'No events scheduled';
+      } else {
+        const secs = Math.ceil((nextUpcoming.startDate.getTime() - now.getTime())/1000);
+        headerLabel.textContent = 'Next event starts in:';
+        headerClock.textContent = fmtMS(secs);
+        idleClock.textContent = fmtMS(secs);
+        idleSub.textContent = `${nextUpcoming.teamName || '(No team)'} — starts at ${nextUpcoming.startTime}`;
+      }
+    }
+
+    // Render judging screen for current session
+    function renderJudging(current, now){
+      if(editorOpen) return;
+
+      idleView.style.display = 'none';
+      judgingView.style.display = 'block';
+      editorView.style.display = 'none';
+
+      judgingTeam.textContent = current.teamName || `(Slot ${current.slot+1})`;
+      judgingSlot.textContent = `Start: ${current.startTime} • Slot ${current.slot+1}`;
+
+      const elapsedSec = Math.floor((now.getTime() - current.startDate.getTime())/1000);
+      judgingElapsed.textContent = fmtMS(elapsedSec);
+
+      // fill segments
+      segmentsList.innerHTML = '';
+      for(const seg of segments){
+        const segRow = document.createElement('div');
+        segRow.className = 'segment';
+        const segTitle = document.createElement('div');
+        segTitle.className = 'seg-title';
+        segTitle.textContent = seg.title;
+        const segStatus = document.createElement('div');
+        if(elapsedSec >= seg.endSec){
+          segStatus.className = 'seg-status done';
+          segStatus.textContent = 'Done';
+        } else if(elapsedSec < seg.startSec){
+          segStatus.className = 'seg-status upcoming';
+          segStatus.textContent = fmtMS(seg.durationSec) + ' not started';
+        } else {
+          segStatus.className = 'seg-status current';
+          segStatus.textContent = fmtMS(seg.endSec - elapsedSec) + ' remaining';
+        }
+        segRow.appendChild(segTitle);
+        segRow.appendChild(segStatus);
+        segmentsList.appendChild(segRow);
+      }
+
+      headerLabel.textContent = 'Judging Time elapsed:';
+      headerClock.textContent = fmtMS(Math.floor((now.getTime() - current.startDate.getTime())/1000));
+    }
+
+    // --- Top-level update loop ---
+    function updateLoop(){
+      if(editorOpen) return;
+
+      const saved = loadDaySchedule();
+      const dates = computeDatesForScheduleWithOverrides(saved);
+      const now = new Date();
+      const nowMs = now.getTime();
+
+      // If there's an active manualSession, check manual session windows
+      if(manualSession){
+        const startMs = manualSession.startDate.getTime();
+        const judgeEndMs = manualSession.judgingEnd ? manualSession.judgingEnd.getTime() : (startMs + JUDGING_MIN*60*1000);
+        const discEndMs = manualSession.discussionEnd ? manualSession.discussionEnd.getTime() : (judgeEndMs + DISCUSSION_MIN*60*1000);
+        if(nowMs >= startMs && nowMs < judgeEndMs){
+          const current = {
+            slot: manualSession.slot,
+            teamName: manualSession.teamName,
+            startTime: pad2(manualSession.startDate.getHours()) + ':' + pad2(manualSession.startDate.getMinutes()),
+            startDate: manualSession.startDate,
+            judgingEnd: new Date(judgeEndMs),
+            discussionEnd: new Date(discEndMs)
+          };
+          renderJudging(current, now);
+          return;
+        } else if(nowMs >= judgeEndMs && nowMs < discEndMs){
+          // show idle (discussion) view but with nextUpcoming null (or same team)
+          renderIdle(null, now);
+          return;
+        } else {
+          // manual session expired
+          manualSession = null;
+        }
+      }
+
+      // find current scheduled judging session (if any)
+      let current = null;
+      for(const d of dates){
+        if(d.startDate && d.judgingEnd && nowMs >= d.startDate.getTime() && nowMs < d.judgingEnd.getTime()){
+          current = { ...d, phase: 'judging' };
+          break;
+        }
+        if(d.judgingEnd && d.discussionEnd && nowMs >= d.judgingEnd.getTime() && nowMs < d.discussionEnd.getTime()){
+          current = { ...d, phase: 'discussion' };
+          break;
+        }
+      }
+
+      // find next upcoming start
+      let nextUpcoming = null;
+      for(const d of dates){
+        if(d.startDate && nowMs < d.startDate.getTime()){
+          nextUpcoming = d;
+          break;
+        }
+      }
+
+      // choose the view
+      if(current && current.phase === 'judging'){
+        renderJudging(current, now);
+      } else {
+        renderIdle(nextUpcoming, now);
+      }
+    }
+
+    // Start main timer
+    function startMainInterval(){
+      if(mainInterval) clearInterval(mainInterval);
+      mainInterval = setInterval(updateLoop, 250);
+      updateLoop();
+    }
+
+    // Init
+    function init(){
+      buildEditorRows();
+      startMainInterval();
+    }
+    init();
+
+    // expose helpers for debugging
+    window.JudgingApp = {
+      loadDaySchedule,
+      saveDaySchedule,
+      computeDatesForSchedule: computeDatesForScheduleWithOverrides,
+      validateSchedule
+    };
+  </script>
+</body>
+</html>

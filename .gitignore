@@ -3,4 +3,6 @@
 /.vscode
 /.venv
 /2024/tournaments
+/2025/tournaments
 *.zip
+*.exe

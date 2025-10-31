@@ -24,7 +24,7 @@ from typing import List, Dict
 from colorama import Fore, Back, Style, init
 
 # To create windows exe executable, run
-# .venv\Scripts\pyinstaller.exe -F 2024\script-maker-mac-win.py -n script_maker-win
+# .venv\Scripts\pyinstaller.exe -F 2025\script-maker-mac-win.py -n script_maker-win
 # in the project folder. The executable will be saved in the 'dist'
 # folder. Just copy it up to the project folder.
 # Double-click to run.
@@ -231,6 +231,9 @@ dataframes = {}
 divAwards: Dict[int, Dict[str, str]] = {}
 divAwards[1] = {}
 divAwards[2] = {}
+
+teamList: List[str] = ["", "", ""]  # teamList[1], teamList[2] valid
+
 # awardHtml key will be the award name, and the values will be the html
 awardHtml = {}
 advancingDf = {}
@@ -286,11 +289,21 @@ for tourn_filename in directory_list:
     dfMeta = pd.DataFrame(data=data, columns=["Key", "Value"])
     for award in awards:
         awardCounts[award] = dfMeta.loc[dfMeta["Key"] == award, "Value"].values[0]
-    print(awardCounts)
+    print("Award counts: " + str(awardCounts))
     ws = book["Results and Rankings"]
     columns, data = read_excel_table(ws, "TournamentData")
     dfRankings = pd.DataFrame(data=data, columns=columns)
     numTeams = len(dfRankings)
+
+    # Build teamList for this division: a single HTML string with <p>...</p> per team
+    teamList[div] = ""
+    for _, row in dfRankings.iterrows():
+        try:
+            team_num = str(int(row["Team Number"]))
+        except (ValueError, TypeError):
+            team_num = ""
+        team_name = row.get("Team Name", "") if hasattr(row, "get") else row["Team Name"]
+        teamList[div] += f"<p>(Div {div}) Team number {team_num}, {team_name}</p>\n"
     print(f"There are {numTeams} teams in Division {div}")
     print(Fore.LIGHTWHITE_EX + "Here is the Results and Rankings data")
     print(dfRankings)
@@ -334,13 +347,15 @@ for tourn_filename in directory_list:
         print(f"There are invalid values on the Innovation Project Input worksheet for Div {div}")
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
+    
+    print(Fore.LIGHTWHITE_EX + "It looks like all of the judging and robot game worksheets are filled in")
 
     # Robot Game
+    # Try a quick test. There should be a team ranked #2
     try:
         teamNum = dfRankings.loc[
             dfRankings["Robot Game Rank"] == 2, "Team Number"
         ].values[0]
-        print(teamNum)
     except:
         print(Fore.RED + 
             f"Fatal error. I'm not seeing any scores. Have you filled out the OJS files and saved them to the right folder?"
@@ -402,30 +417,35 @@ for tourn_filename in directory_list:
                 teamName = dfRankings.loc[
                     dfRankings["Award"] == thisAward, "Team Name"
                 ].values[0]
+                thisText = (
+                    "<p>The Division "
+                    + str(div)
+                    + " "
+                    + ordinals[i]
+                    + " place "
+                    + award
+                    + " award goes to team number "
+                    + str(int(teamNum))
+                    + ", "
+                    + teamName
+                    + "</p>\n"
+                )
+                divAwards[div][award] += thisText
             except:
-                print(Fore.RED + 
-                    f"Required {thisAward} award for Division {div} is missing. Have you selected it in the OJS?"
+                print(Fore.YELLOW + 
+                    f"{thisAward} award for Division {div} is missing. Have you selected it in the OJS?"
                 )
                 print(dir_path)
                 print(Fore.LIGHTWHITE_EX + 
-                    "All required awards must be properly selected on the Results and Rankings spreadsheet"
+                    "All required awards should be properly selected on the Results and Rankings spreadsheet. This is just a warning any you can continue if you want."
                 )
-                input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
-                sys.exit(1)
-            thisText = (
-                "<p>The Division "
-                + str(div)
-                + " "
-                + ordinals[i]
-                + " place "
-                + award
-                + " award goes to team number "
-                + str(int(teamNum))
-                + ", "
-                + teamName
-                + "</p>\n"
-            )
-            divAwards[div][award] += thisText
+                try:
+                    input("Press enter to continue. Press ctrl-c to quit...")
+                except:
+                    print(
+                        "\n\nStopped building the script. Please check that the OJS files are filled out correctly before trying to build the script again."
+                    )
+                    sys.exit(0)
 
     # Advancing
     advancingDf[div - 1] = dfRankings[dfRankings["Advance?"] == "Yes"]
@@ -595,6 +615,8 @@ out_text = template.render(
     tournament_name=dfMeta.loc[dfMeta["Key"] == "Tournament Long Name", "Value"].values[
         0
     ],
+    div1_list = teamList[1],
+    div2_list = teamList[2],
     rg_div1_list=rg_html[1],
     rg_div2_list=rg_html[2],
     rd_div1_list=divAwards[1]["Robot Design"],
