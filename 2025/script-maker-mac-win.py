@@ -313,7 +313,7 @@ for tourn_filename in directory_list:
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)
 
-    if(check_range_for_valid_numbers(book["Robot Game Scores"], "C2:E" + str(numTeams + 1), 0, 455)):
+    if(check_range_for_valid_numbers(book["Robot Game Scores"], "C2:E" + str(numTeams + 1), 0, 545)):
         print(f"There are invalid scores on the Robot Game Scores worksheet for Div {div}")
         input(Fore.LIGHTWHITE_EX + "Press enter to quit...")
         sys.exit(1)

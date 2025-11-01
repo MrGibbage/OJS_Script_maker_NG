@@ -67,6 +67,7 @@ UI and styling
   - Use aria-live regions for schedule updates.
   - Buttons and interactive elements must be focusable and labeled.
   - Provide alt text for the logo and tooltips (title attributes) for truncated text.
+  - Responsive and work well on mobile device screens as well as computer/laptop screens.
 
 Data model and storage
 - Persisted keys and formats:

@@ -1,0 +1,13 @@
+Judging Timer - dev notes
+
+Files in this folder:
+- judging_timer.html
+- manifest.json
+- service-worker.js
+- icons/icon-192.svg
+- icons/icon-512.svg
+
+Notes:
+- Use relative paths for manifest and service worker registration.
+- To test PWA install prompt, serve over HTTPS or use localhost.
+- Ensure icons exist at ./icons/ and manifest references them.

@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Judging Day Scheduler & Timer</title>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#071025">
+  <style>
+    :root{
+      --scale: 1.5;
+      --bg-top: #071025;
+      --bg-bottom: #071a2d;
+      --card: rgba(255,255,255,0.02);
+      --muted:#9aa6bb;
+      --accent:#ffb86b;
+      --good:#20c997;
+      --warn:#ffb86l;
+      --bad:#ef476f;
+      --text:#e6eef8;
+      font-family: Inter, "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;margin:0;background: linear-gradient(180deg,var(--bg-top),var(--bg-bottom));color:var(--text)}
+    .outer{display:flex;justify-content:center;align-items:flex-start;padding:18px;min-height:100vh;box-sizing:border-box}
+    .wrap{
+      width: 100%;
+      max-width: 1200px;
+      padding:26px;border-radius:12px;background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      box-shadow: 0 6px 30px rgba(2,6,23,0.6);box-sizing:border-box;
+    }
+
+    header{display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap}
+    .header-left{display:flex;align-items:center;gap:12px;min-width:0}
+    #logo{height:40px;width:auto;border-radius:6px;opacity:0.98;box-shadow:0 1px 6px rgba(0,0,0,0.35)}
+    .left{display:flex;flex-direction:column;min-width:0}
+    .local-time{font-size:16px;color:var(--muted);white-space:nowrap;}
+    .elapsed{margin-top:6px;font-weight:700;font-size:28px;display:flex;gap:12px;align-items:center;white-space:nowrap}
+    .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    button{background:var(--card);color:var(--text);border:1px solid rgba(255,255,255,0.04);padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600;white-space:nowrap}
+    button.primary{background: linear-gradient(90deg,var(--accent), #ff9f43);color:#061220;border:none}
+    button.danger{background: rgba(239,71,111,0.08);color:var(--bad);border:1px solid rgba(239,71,111,0.14)}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04)}
+
+    main{margin-top:18px}
+    .small{font-size:13px;color:var(--muted);margin-bottom:10px}
+
+    #idleView{display:none;padding:18px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
+    #idleView .big{font-size:48px;font-weight:800;color:var(--text);margin-top:6px}
+    #idleView .sub{font-size:18px;color:var(--muted);margin-top:6px}
+
+    #judgingView{display:none;padding:18px;border-radius:10px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
+    #judgingHeader{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    #judgingHeader .team{font-size:22px;font-weight:800}
+    #judgingHeader .timers{display:flex;flex-direction:column;align-items:flex-end}
+    #judgingHeader .timers .big{font-size:30px;font-weight:800}
+    .segments{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+    .segment{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
+    .segment .seg-title{font-weight:700;color:var(--text);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .seg-status{font-weight:700;color:var(--muted);font-size:14px;white-space:nowrap}
+    .seg-status.done{color:var(--good)}
+    .seg-status.current{color:var(--warn)}
+    .seg-status.upcoming{color:var(--muted)}
+
+    .editor{display:none;margin-top:8px;border-radius:10px;padding:14px;background: rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
+    .editor .row{display:flex;align-items:center;gap:10px;padding:8px 0}
+    .editor label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    .editor input[type="text"]{flex:1;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:rgba(0,0,0,0.12);color:var(--text)}
+    .editor input[type="time"]{padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:rgba(0,0,0,0.12);color:var(--text)}
+    .editor .hint{font-size:13px;color:var(--muted);margin-top:8px}
+    .error{color:var(--bad);font-weight:700;margin-top:8px}
+    .warning{color:var(--accent);font-weight:700;margin-top:8px}
+    .conflict{border:2px solid rgba(239,71,111,0.22);box-shadow:0 0 0 3px rgba(239,71,111,0.04) inset}
+
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+
+    @media (max-width:800px){ :root { --scale: 1.2; } }
+    @media (max-width:480px){ :root { --scale: 1.0; } .segments{gap:6px} .segment{padding:8px} }
+
+    button:focus,input:focus{outline:2px solid rgba(255,255,255,0.06);outline-offset:2px}
+
+    .wrap{transform: none !important;width: 100%;max-width: 1200px;padding: 18px;box-sizing: border-box;}
+    .header-left, .left, .controls { min-width: 0; }
+    .left { overflow: hidden; }
+    .local-time, .elapsed, #headerLabel, #headerClock { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+    .elapsed { flex-wrap: wrap; gap:8px; }
+
+    .controls { flex-wrap: wrap; gap: 8px; }
+    .controls button { white-space: nowrap; }
+
+    button { padding: 8px 10px; font-size: 0.95rem; }
+    button.primary { padding: 8px 12px; }
+
+    .editor input[type="text"], .editor input[type="time"] { max-width: 180px; min-width: 80px; box-sizing: border-box; }
+
+    .segment { display:flex; align-items:center; gap:12px; }
+    .segment .seg-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .segment .seg-status { flex-shrink: 0; margin-left: 12px; }
+
+    @media (max-width: 800px){ :root { --scale: 1.2; } .wrap{ padding: 14px; } #logo{ height:32px; } .local-time{ font-size:14px } .elapsed{ font-size:18px } .big{ font-size:28px } .editor input[type="text"], .editor input[type="time"] { max-width: 140px; } }
+    @media (max-width: 480px){ :root { --scale: 1.0; } .wrap{ padding: 12px; } header{ gap:10px } .controls{ gap:6px } #logo{ height:28px } .local-time{ font-size:13px } .elapsed{ font-size:16px } .big{ font-size:24px } .editor input[type="text"], .editor input[type="time"] { max-width: 120px; } .editor .row{ flex-direction: column; align-items: stretch; gap:6px } .segments{ gap:6px } .segment{ padding:8px } }
+
+    html, body { overflow-x: hidden; }
+    button:focus, input:focus { outline: 2px solid rgba(255,255,255,0.08); outline-offset: 2px; }
+    #themeToggleBtn { display: none; }
+
+    .hamburger{width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+    .hamburger .bar{width:18px;height:2px;background:var(--text);border-radius:2px;position:relative}
+    .hamburger .bar:before,.hamburger .bar:after{content:'';position:absolute;left:0;width:18px;height:2px;background:var(--text);border-radius:2px}
+    .hamburger .bar:before{top:-6px}
+    .hamburger .bar:after{top:6px}
+
+    #appMenu{position:fixed;right:12px;top:64px;width:260px;background:var(--card);border:1px solid rgba(255,255,255,0.04);border-radius:10px;padding:12px;box-shadow:0 8px 30px rgba(0,0,0,0.4);z-index:1200;display:none}
+    #appMenu h4{margin:0 0 8px 0;font-size:14px}
+    #appMenu .menu-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(255,255,255,0.02)}
+    #appMenu .menu-row:first-of-type{border-top:0;padding-top:0}
+    #appMenu button.menu-btn{background:transparent;border:none;color:var(--text);font-weight:700;cursor:pointer}
+    #appMenu label{display:flex;align-items:center;gap:8px;color:var(--muted);font-weight:600}
+
+    #helpModal{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(2,6,23,0.7);display:none;align-items:center;justify-content:center;z-index:1300}
+    #helpModal .modal{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:18px;border-radius:10px;max-width:460px;color:var(--text)}
+    #helpModal .modal h3{margin-top:0}
+    #helpModal .modal p{color:var(--muted);font-size:14px}
+  </style>
+</head>
+<body>
+  <div class="outer">
+    <div class="wrap" role="application" aria-label="Judging day scheduler">
+
+      <header>
+        <div class="header-left">
+          <a href="https://va-dcfll.org/app/uploads/2020/05/FIRST-FLL-VA-DC-h.png" target="_blank" rel="noopener noreferrer" title="FIRST FLL VA/DC logo">
+            <img id="logo" src="https://va-dcfll.org/app/uploads/2020/05/FIRST-FLL-VA-DC-h.png" alt="FIRST FLL VA/DC logo">
+          </a>
+
+          <div class="left">
+            <div class="local-time" id="localTime">Local time: --:--</div>
+            <div class="elapsed" id="headerTimer">
+              <div id="headerLabel">Next event starts in:</div>
+              <div id="headerClock">00:00</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="menuToggle" class="hamburger" aria-label="Open menu" title="Open menu"><span class="bar"></span></button>
+          <button id="openEditorBtn" class="ghost" title="Edit day schedule">Edit Day Schedule</button>
+          <button id="saveAsExampleBtn" class="ghost" title="Fill example schedule">Fill Example</button>
+          <button id="clearSavedBtn" class="danger" title="Clear saved schedule">Clear Saved</button>
+          <button id="themeToggleBtn" class="ghost" title="Toggle light/dark mode" aria-pressed="false">Theme</button>
+        </div>
+      </header>
+
+      <div id="bottomBar" style="position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;padding:10px;background:linear-gradient(180deg,rgba(0,0,0,0.02),rgba(0,0,0,0.04));justify-content:center;z-index:1400"> 
+        <button id="bbStartNow" class="primary" style="flex:1;padding:14px 18px;font-size:16px;border-radius:10px;">Start Now</button>
+        <button id="bbEdit" class="ghost" style="flex:1;padding:14px 18px;font-size:16px;border-radius:10px;">Edit</button>
+      </div>
+
+      <main>
+        <div class="small">Judging sessions are 30 minutes long. Nominally there will be 15 minutes between teams.</div>
+
+        <section id="idleView" aria-live="polite">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <div>
+              <div style="font-size:18px;color:var(--muted)">Waiting for next team</div>
+              <div class="sub" id="idleSub">No events scheduled</div>
+            </div>
+            <div style="text-align:right">
+              <div class="big" id="idleClock">00:00</div>
+              <div class="sub" id="idleTimeNow" style="margin-top:6px;color:var(--muted)"></div>
+              <div style="margin-top:10px;display:flex;gap:8px;justify-content:flex-end">
+                <button id="idleEditBtn" class="primary">Edit schedule</button>
+                <button id="startNowBtn" class="primary" title="Start a judging session now">Start Now</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="judgingView" aria-live="polite">
+          <div id="judgingHeader">
+            <div>
+              <div class="team" id="judgingTeam">Team Name</div>
+              <div style="font-size:13px;color:var(--muted)" id="judgingSlot">Slot</div>
+            </div>
+            <div class="timers">
+              <div style="font-size:13px;color:var(--muted)">Judging elapsed</div>
+              <div class="big" id="judgingElapsed">00:00</div>
+              <div style="margin-top:8px;text-align:right;display:flex;gap:8px;justify-content:flex-end;align-items:center">
+                <button id="judgingEditBtn" class="primary">Edit schedule</button>
+                <button id="judgingCancelBtn" class="danger" title="End judging early and start discussion">End / Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="segments" id="segmentsList"></div>
+        </section>
+
+        <section class="editor" id="editorView" aria-live="polite">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-weight:800">Day Schedule Editor (up to 7 teams)</div>
+            <div style="font-size:13px;color:var(--muted)">Saved to local storage</div>
+          </div>
+
+          <div id="editorRows"></div>
+
+          <div style="display:flex;gap:10px;margin-top:12px">
+            <button id="saveDayBtn" class="primary">Save Day Schedule</button>
+            <button id="cancelDayBtn" class="ghost">Cancel</button>
+            <button id="clearDayBtn" class="danger">Clear All</button>
+          </div>
+
+          <div id="editorError" class="error" style="display:none"></div>
+          <div id="editorWarn" class="warning" style="display:none"></div>
+
+          <div class="hint">Rules: Judging sessions are 30 minutes. The editor will reject schedules whose 30-minute judging windows overlap. A 15-minute discussion after each judging is allowed but if it overlaps the next judging you'll receive a warning.</div>
+        </section>
+
+        <div id="appMenu">
+          <h4>Judging Day Menu</h4>
+          <div class="menu-row"><button id="menuCloseBtn" class="ghost" title="Close menu">Close</button></div>
+          <div class="menu-row"><button id="openEditorBtn2" class="menu-btn">Edit Day Schedule</button></div>
+          <div class="menu-row"><button id="saveAsExampleBtn2" class="menu-btn">Fill Example Schedule</button></div>
+          <div class="menu-row"><button id="clearSavedBtn2" class="danger menu-btn">Clear Saved Schedule</button></div>
+          <div class="menu-row"><label for="keepAwakeToggle"><input id="keepAwakeToggle" type="checkbox" aria-label="Keep screen awake">Keep screen awake</label></div>
+          <div class="menu-row"><button id="themeToggleBtn2" class="ghost menu-btn" title="Toggle light/dark mode" aria-pressed="false">Theme</button></div>
+          <div class="menu-row"><button id="installBtn" class="menu-btn" style="display:none">Install app</button><button id="helpBtn" class="ghost" title="Help & information">Help</button></div>
+        </div>
+
+        <div id="helpModal"><div class="modal"><h3>Judging Day Scheduler</h3><p>Welcome to the Judging Day Scheduler & Timer. This tool helps you manage judging sessions and breaks efficiently.</p><p><strong>Key Features:</strong></p><ul><li>View and edit the judging schedule for the day.</li><li>Start, pause, and resume judging sessions with ease.</li><li>Receive alerts when it's time to switch teams or start discussions.</li><li>Clear and fill example schedules for quick setup.</li></ul><p>For detailed instructions, refer to the <a href="https://va-dcfll.org" target="_blank" rel="noopener noreferrer">official guide</a>.</p><button id="closeHelpBtn" class="primary" style="margin-top:12px">Got it, thanks!</button></div></div>
+
+        <footer>Built for VA-DC FLL Judges.</footer>
+      </main>
+    </div>
+  </div>
+
+  <script>
+// Minimal stable app script to avoid runtime syntax errors. Rest of features can be restored incrementally.
+const MAX_TEAMS = 7;
+const JUDGING_MIN = 30;
+const DISCUSSION_MIN = 15;
+const STORAGE_KEY = 'judgingDaySchedule_v2';
+
+const localTimeEl = document.getElementById('localTime');
+const idleView = document.getElementById('idleView');
+const idleClock = document.getElementById('idleClock');
+const idleSub = document.getElementById('idleSub');
+const idleTimeNow = document.getElementById('idleTimeNow');
+const startNowBtn = document.getElementById('startNowBtn');
+const bbStartNow = document.getElementById('bbStartNow');
+const bbEdit = document.getElementById('bbEdit');
+const editorView = document.getElementById('editorView');
+const editorRows = document.getElementById('editorRows');
+const openEditorBtn = document.getElementById('openEditorBtn');
+const saveDayBtn = document.getElementById('saveDayBtn');
+const idleEditBtn = document.getElementById('idleEditBtn');
+
+let manualSession = null;
+let intervalId = null;
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fmtMS(sec){ if(sec<0) sec=0; const m=Math.floor(sec/60); const s=Math.floor(sec%60); return m+':'+String(s).padStart(2,'0'); }
+
+function tickLocalTime(){
+  const now = new Date();
+  const opts = { hour:'numeric', minute:'2-digit', hour12:true };
+  const formatted = now.toLocaleTimeString([], opts).replace(/\s+/, '');
+  if(localTimeEl) localTimeEl.textContent = 'Local time: ' + formatted;
+  if(idleTimeNow) idleTimeNow.textContent = 'Now: ' + formatted;
+}
+
+function loadDaySchedule(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }catch(e){ return []; } }
+function saveDaySchedule(schedule){ localStorage.setItem(STORAGE_KEY, JSON.stringify(schedule)); }
+
+function computeDatesForSchedule(schedule, today=new Date()){
+  return schedule.map(entry=>{
+    let startDate = null;
+    if(entry && entry.startTime && /^\d{2}:\d{2}$/.test(entry.startTime)){
+      const [hh,mm] = entry.startTime.split(':').map(Number);
+      startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hh, mm, 0, 0);
+    }
+    let judgingEnd = startDate ? new Date(startDate.getTime() + JUDGING_MIN*60*1000) : null;
+    let discussionEnd = judgingEnd ? new Date(judgingEnd.getTime() + DISCUSSION_MIN*60*1000) : null;
+    return { ...entry, startDate, judgingEnd, discussionEnd };
+  }).sort((a,b)=>{
+    if(!a.startDate && !b.startDate) return (a.slot||0)-(b.slot||0);
+    if(!a.startDate) return 1;
+    if(!b.startDate) return -1;
+    return a.startDate.getTime() - b.startDate.getTime();
+  });
+}
+
+function renderIdle(nextUpcoming){
+  idleView.style.display = 'block';
+  // basic display
+  if(!nextUpcoming){
+    idleClock.textContent = '00:00';
+    idleSub.textContent = 'No events scheduled';
+  } else {
+    const secs = Math.max(0, Math.ceil((nextUpcoming.startDate.getTime() - Date.now())/1000));
+    idleClock.textContent = fmtMS(secs);
+    idleSub.textContent = `${nextUpcoming.teamName || '(No team)'} — starts at ${nextUpcoming.startTime}`;
+  }
+}
+
+function renderJudging(current){
+  // very small representation: show elapsed
+  const now = new Date();
+  const elapsed = Math.floor((now.getTime() - current.startDate.getTime())/1000);
+  // reuse idleClock to show elapsed for simplicity
+  idleView.style.display = 'block';
+  idleClock.textContent = fmtMS(elapsed);
+  idleSub.textContent = `${current.teamName || '(No team)'} — judging`;
+}
+
+function updateLoop(){
+  tickLocalTime();
+  const sched = loadDaySchedule();
+  const dates = computeDatesForSchedule(sched);
+  const now = Date.now();
+  // if manual session active
+  if(manualSession){
+    const startMs = manualSession.startDate.getTime();
+    const judgeEndMs = manualSession.judgingEnd.getTime();
+    if(now < judgeEndMs){ renderJudging(manualSession); return; }
+    manualSession = null; // expired
+  }
+  // find current scheduled judging
+  let current = null;
+  for(const d of dates){ if(d.startDate && d.judgingEnd && now >= d.startDate.getTime() && now < d.judgingEnd.getTime()){ current = d; break; } }
+  // find next upcoming
+  let nextUpcoming = null;
+  for(const d of dates){ if(d.startDate && now < d.startDate.getTime()){ nextUpcoming = d; break; } }
+  if(current) { renderJudging(current); } else { renderIdle(nextUpcoming); }
+}
+
+function startMainInterval(){ if(intervalId) clearInterval(intervalId); intervalId = setInterval(updateLoop, 1000); updateLoop(); }
+
+// Editor helpers (very small)
+function buildEditorRows(){
+  editorRows.innerHTML = '';
+  const saved = loadDaySchedule();
+  for(let i=0;i<MAX_TEAMS;i++){
+    const entry = saved.find(s=>s.slot===i) || { slot:i, teamName:'', startTime:'' };
+    const row = document.createElement('div'); row.style.display='flex'; row.style.gap='8px'; row.innerHTML = `<input id="day-team-${i}" placeholder="Team name" value="${entry.teamName||''}" /><input id="day-time-${i}" type="time" value="${entry.startTime||''}" />`;
+    editorRows.appendChild(row);
+  }
+}
+function collectEditorSchedule(){ const out=[]; for(let i=0;i<MAX_TEAMS;i++){ const team=document.getElementById(`day-team-${i}`); const time=document.getElementById(`day-time-${i}`); out.push({ slot:i, teamName: team?team.value.trim():'', startTime: time?time.value:'' }); } return out; }
+
+openEditorBtn.addEventListener('click', ()=>{ buildEditorRows(); editorView.style.display='block'; });
+idleEditBtn.addEventListener('click', ()=>{ buildEditorRows(); editorView.style.display='block'; });
+saveDayBtn.addEventListener('click', ()=>{ const sched = collectEditorSchedule(); saveDaySchedule(sched); editorView.style.display='none'; updateLoop(); });
+
+startNowBtn.addEventListener('click', ()=>{
+  const now = new Date();
+  manualSession = { slot:-1, teamName:'Manual', startDate: now, judgingEnd: new Date(now.getTime()+JUDGING_MIN*60*1000) };
+  updateLoop();
+});
+if(bbStartNow) bbStartNow.addEventListener('click', ()=> startNowBtn.click());
+if(bbEdit) bbEdit.addEventListener('click', ()=> openEditorBtn.click());
+
+// PWA: register service worker using relative path
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('./service-worker.js').catch(()=>{}); }
+
+// start
+startMainInterval();
+  </script>
+</body>
+</html>
