@@ -1,0 +1,15 @@
+The 30-minute judging session goes like this:
+Introduction 2 minutes
+Innovation Project Presentation 5 minutes
+Innovation Project Q & A 5 minutes
+Robot Design Presentation 5 minutes
+Robot Design Q & A 5 minutes
+Feedback 8 minutes
+
+Make sure all of the session parts are on the JudgingView screen. Each session should have a countdown timer that starts when it is time. For example if the session started at 8:00. the screen would look this at 8:05:25 (5:25 elapsed into the judging session)
+Introduction COMPLETE
+Innovation Project Presentation 1:35
+Innovation Project Q & A Not started
+Robot Design Presentation Not started
+Robot Design Q & A Not started
+Feedback Not started

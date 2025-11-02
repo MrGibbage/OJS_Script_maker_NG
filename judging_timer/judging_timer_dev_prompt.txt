@@ -1,13 +1,77 @@
-Judging Timer - dev notes
+Judging Day Scheduler & Timer - AI task prompt
 
-Files in this folder:
-- judging_timer.html
-- manifest.json
-- service-worker.js
-- icons/icon-192.svg
-- icons/icon-512.svg
+Goal
+- Implement a single-page web app (HTML/CSS/JS) named "Judging Day Scheduler & Timer" that matches all UI, behavior, accessibility, PWA, and data storage rules described below.
+- Do NOT modify the existing judging_timer.html file in this repository when verifying behavior — use this prompt to implement from scratch or to make improvements in new files only.
 
-Notes:
-- Use relative paths for manifest and service worker registration.
-- To test PWA install prompt, serve over HTTPS or use localhost.
-- Ensure icons exist at ./icons/ and manifest references them.
+Files & PWA
+- Use relative paths for manifest and service worker.
+- Ensure a manifest.json is present and references icons located in ./icons/ (icons/icon-192.svg and icons/icon-512.svg).
+- Register the service worker from ./service-worker.js using navigator.serviceWorker.register('./service-worker.js').
+- The site should be testable on localhost or HTTPS for PWA install prompt.
+
+Layout and structure
+- Fixed header: height 64px, full width, z-index above content. Header contains a left hamburger (#menuToggle), centered app title, and right logo image.
+- Main content area (.wrap) must occupy the viewport between the fixed header and the bottom action bar. Use calc(100vh - 64px - 64px) logic so content fits without causing horizontal scroll.
+- Bottom action bar (#bottomBar): fixed to bottom, height 64px, centered Start Now and Edit buttons. #bbStartNow must appear as primary normally and as danger when judging in progress.
+- Large persistent local clock (#localTime) must be fixed under header and remain visible; uses tabular-nums and scales with a CSS variable --scale.
+- Idle view (#idleView) and judging view (#judgingView) are toggled; editor (#editorView) is shown when editing.
+
+App menu overlay (#appMenu)
+- Implement a full-width panel that appears below header when toggled. Panel placement: fixed, top:64px, left:0, right:0, bottom:0, z-index:1550.
+- The panel must be nearly opaque: in dark mode background-color: rgba(8,16,28,0.96) with border: 1px solid rgba(255,255,255,0.04). In light mode (.light-theme #appMenu) background-color: rgba(255,255,255,0.96) with border: 1px solid rgba(0,0,0,0.06).
+- Menu items are full-width tactile buttons with proper hover/focus states. Keep the Help menu item; do NOT include a demo mode item.
+- Menu must set aria-hidden appropriately and focus the first focusable element when opened. Close on Escape and outside click.
+
+Theme and color behavior
+- Provide a theme toggle in the menu that toggles document.documentElement.classList.add/remove('light-theme') and persists preference in localStorage key 'lightTheme'.
+- Dark theme: primary backgrounds and subtle translucency should match the dark palette in the current CSS variables.
+- Light theme: apply variable overrides (bg colors, --text, --muted, etc.).
+- Active/current segment styling: in dark mode use #FFD54F (yellow) for .segment.current .seg-title and .seg-status. In light mode use #D97706 (dark orange) for .segment.current .seg-title and .seg-status.
+
+Segments and timers
+- Default segment definitions: Introduction 2m, Innovation Project Presentation 5m, Q&A 5m, Robot Design Presentation 5m, Robot Design Q&A 5m, Feedback 8m.
+- Support schedule entries with either minute-based segments or second-based segments (used for testing), and support per-entry overrides judgingMs and discussionMs.
+- getSegmentsForEntry(entry): return segments array with start and end Date objects when entry.startDate exists; support segmentsSeconds flag for second-based demo segments.
+- In the judging view render each segment row with .segment and .seg-title (left) and .seg-status (right). .seg-status shows COMPLETE for done, remaining mm:ss for current, "Not started" for upcoming. Current .seg-status should be visually larger (font-size ~28px).
+
+Editor behavior
+- Editor shows up to MAX_TEAMS = 7 rows. Each row has a team name input and a time input (type=time).
+- Editor must load saved schedule from localStorage key 'judgingDaySchedule_v2' and populate rows accordingly.
+- When editor is opened, it must display the saved schedule only (no demo injection). When cleared, localStorage key should be removed and editor fields cleared.
+- Show a clear warning/error area for invalid schedules. Save button should persist schedule and close editor.
+
+Data and scheduling logic
+- Persist schedule JSON to localStorage key 'judgingDaySchedule_v2'. Structure: array of entries { slot:number, teamName:string, startTime:'HH:MM', optional segments, optional judgingMs/discussionMs }
+- computeDatesForSchedule(schedule, today=new Date()) must compute startDate, judgingEnd, discussionEnd for each entry, skipping slots marked cancelled via runtime cancelledSlots Set.
+- updateLoop() runs every second, updates the large clock, computes dates, detects current scheduled judging (now between startDate and judgingEnd), finds next upcoming, and renders either idle or judging view.
+- Manual session support: allow starting a manual session (slot:-1) via Start Now; track manualSession with startDate and judgingEnd.
+- When a scheduled judging is active, disable editing (bbEdit.disabled = true).
+
+Accessibility
+- Menu and modals must have appropriate ARIA attributes: aria-hidden on hidden panels/modals; hamburger button should have aria-expanded toggled.
+- Focus management: when opening appMenu focus the first focusable control; when closing restore focus to menu toggle.
+- Provide keyboard handlers for Escape to close menus/modals and basic tab ordering inside overlays.
+
+Help modal
+- The help modal (#helpModal) must be hidden by default (display:none, aria-hidden=true) and only shown when the Help menu item is clicked. Clicking the close button hides it and restores aria-hidden.
+
+Styling details to match current edits (exact values where specified)
+- Header height: 64px; #menuToggle size 42px; header background in dark: linear-gradient(180deg, rgba(7,16,37,0.95), rgba(7,22,45,0.75)).
+- #appMenu dark background: rgba(8,16,28,0.96); light: rgba(255,255,255,0.96).
+- Active segment colors: dark mode #FFD54F, light mode #D97706.
+- #localTime large font scales using --scale and should use font-variant-numeric: tabular-nums.
+- Buttons: primary gradient from var(--accent) to #ff9f43, danger uses rgba(239,71,111, .08 background and var(--bad) text color).
+- Disabled button styles include opacity:0.5, cursor:not-allowed, pointer-events:none, filter: grayscale(25%).
+
+Testing notes
+- Verify no demo mode menu item exists and no demo-related code runs or injects schedule data.
+- Verify help modal does not show automatically on page load; it should only open via menu item.
+- Verify editor shows saved schedule from localStorage; saving persists and updateLoop reflects schedule.
+- Verify PWA assets (manifest and icons) are correctly referenced and service worker registers.
+- Verify keyboard accessibility: menu open/close, Escape closes overlays, focus management.
+
+Deliverable
+- Provide the updated code in the judging_timer folder (new files allowed), or a PR implementing the above. Do not change judging_timer.html while validating this prompt — use this prompt to implement any further changes.
+
+End of prompt.

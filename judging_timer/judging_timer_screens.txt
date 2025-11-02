@@ -1,0 +1,8 @@
+idleView → Idle / Waiting screen (shows next team, countdown, Start Now, Edit)
+judgingView → Judging screen (current team, elapsed timer, segments list)
+editorView → Day Schedule Editor (edit/save/clear schedule)
+appMenu → App Menu / Hamburger menu (Edit, Fill example, Clear, Theme, Install, Help)
+helpModal → Help modal (info dialog)
+bottomBar → Bottom action bar (Start Now / Edit quick buttons)
+header (header / header-left) → Top header (logo, local time, next-event clock)
+segmentsList → Segments list inside Judging screen (segment rows)
