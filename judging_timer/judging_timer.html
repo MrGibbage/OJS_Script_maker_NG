@@ -549,6 +549,14 @@ function updateEditButtonState(isJudging){
   const shouldDisable = !!isJudging || !!inEditor;
   bbEdit.disabled = shouldDisable;
   if(shouldDisable) bbEdit.classList.add('disabled'); else bbEdit.classList.remove('disabled');
+
+  // Additionally: when the editor is open, disable the bottom-bar "Start Now" button
+  if(bbStartNow){
+    bbStartNow.disabled = !!inEditor;
+  }
+  if(typeof startNowBtn !== 'undefined' && startNowBtn){
+    startNowBtn.disabled = !!inEditor;
+  }
 }
 
 // Observe editor visibility changes and update the edit button accordingly
@@ -656,9 +664,11 @@ function renderIdle(nextUpcoming){
   // clear active judging state and update bottom bar
   activeJudging = null;
   setBottomBarState(false);
+  // determine editor visibility so we don't overwrite its intent
+  const inEditor = !!(editorView && editorView.style && editorView.style.display && editorView.style.display !== 'none');
   // Disable Start Now when a saved/demo schedule is present (user should use scheduled sessions)
-  if(bbStartNow) bbStartNow.disabled = !!hasSavedActiveSchedule;
-  if(startNowBtn) startNowBtn.disabled = !!hasSavedActiveSchedule;
+  if(bbStartNow) bbStartNow.disabled = inEditor || !!hasSavedActiveSchedule;
+  if(startNowBtn) startNowBtn.disabled = inEditor || !!hasSavedActiveSchedule;
   // basic display
   if(!nextUpcoming){
     console.log('[JT] renderIdle: no upcoming events');
@@ -680,8 +690,9 @@ function renderJudging(current){
   activeJudging = current;
   setBottomBarState(true);
   // ensure action buttons are enabled while judging is active
-  if(bbStartNow) bbStartNow.disabled = false;
-  if(startNowBtn) startNowBtn.disabled = false;
+  const inEditor = !!(editorView && editorView.style && editorView.style.display && editorView.style.display !== 'none');
+  if(bbStartNow) bbStartNow.disabled = inEditor ? true : false;
+  if(startNowBtn) startNowBtn.disabled = inEditor ? true : false;
   // team/slot
   if(judgingTeam) judgingTeam.textContent = current.teamName || '(No team)';
   if(judgingSlot) judgingSlot.textContent = current.slot>=0 ? 'Slot ' + current.slot : '';
