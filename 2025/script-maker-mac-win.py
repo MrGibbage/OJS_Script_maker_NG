@@ -224,7 +224,8 @@ awards = {
     "Core Values": "",
     "Judges": "",
 }
-rg_html = {}
+# rg_html = {}
+rg_html: List[str] = ["", "", ""]
 dataframes = {}
 # divAwards key will be 1 and/or 2, and the value will be the awardHtml dictionaries
 # yes, it is a dictionary of dictionaries
@@ -235,13 +236,13 @@ divAwards[2] = {}
 teamList: List[str] = ["", "", ""]  # teamList[1], teamList[2] valid
 
 # awardHtml key will be the award name, and the values will be the html
-awardHtml = {}
+awardHtml: List[str] = ["", "", ""]
 advancingDf = {}
 altAdvancingDf = {}
-advancingHtml = {}
+advancingHtml: List[str] = ["", "", ""]
 awardCounts = {}
 judgesAwardDf = {}
-judgesAwardHtml = {}
+judgesAwardHtml: List[str] = ["", "", ""]
 judgesAwardTotalCount = 0
 divJudgesAwards = [0, 0]
 allowedAdvancingCount = [0, 0]  # D1 is index 0
