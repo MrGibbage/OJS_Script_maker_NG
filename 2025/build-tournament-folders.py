@@ -411,6 +411,8 @@ def set_up_meta_worksheet(tournament: pd.Series, yr: int, seasonName: str):
                 + tournament["Judges_5"]
                 + tournament["Judges_6"]
             )
+            # Dual emcee, used for highlighting
+            ws.cell(row=15, column=2).value = tournament["dual_emcee"]
             ojs_book.save(ojsfile)
 
 

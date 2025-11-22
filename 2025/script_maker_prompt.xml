@@ -1,0 +1,473 @@
+<developerPrompt>
+    <goal>Build a python file [script-maker-mac-win-test.py](http://_vscodecontentref_/0) to reliably
+        build the Closing Ceremony HTML from OJS .xlsm files across Windows/macOS/Linux, and add
+        validation, non-interactive mode, and tests.</goal>
+    <context>Current single-file script reads one or two *div*.xlsm OJS workbooks and a Jinja HTML
+        template, validates score ranges and required fields, renders output HTML, and uses
+        colorized console I/O and blocking prompts as needed.</context>
+    <inputs>
+        <defaultDir>script folder (overridable)</defaultDir>
+        <requiredFiles>file_list.txt lists all required files</requiredFiles>
+        <OjsExcelWorkbook>
+            <purpose>The OJS workbook contains worksheets and tables related to a single division at a robotics tournament. All data is stored in Excel tables and all programming logic should refer to tables and columns by table name and column name rather than object number or column letter.</purpose>
+            <worksheets>
+                <worksheet>
+                    <name>Team and Program Information</name>
+                    <purpose>_NUMTEAMS_ Number of teams competing. Use this list for programming
+                        loops</purpose>
+                    <table>
+                        <tablename>OfficialTeamList</tablename>
+                        <tableColumns>
+                            <tableColumn id="1" name="Team Number" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="2" name="Team Name" type="string"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="3" name="Coach" type="string" minOccurs="0"
+                                maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="4" name="Pod Number" type="integer" minOccurs="0"
+                                maxOccurs="_NUMTEAMS_" validation="none" />
+                        </tableColumns>
+                    </table>
+                </worksheet>
+                <worksheet>
+                    <name>Meta</name>
+                    <table>
+                        <tablename>Meta</tablename>
+                        <tableColumns>
+                            <tableColumn id="1" name="Key" type="integer" minOccurs="1"
+                                maxOccurs="unbounded" validation="none" />
+                            <tableColumn id="2" name="Value" type="string" minOccurs="1"
+                                maxOccurs="unbounded" validation="none" />
+                            <tableColumn id="3" name="Comment" type="string" minOccurs="1"
+                                maxOccurs="unbounded" validation="none" />
+                        </tableColumns>
+                        <tableRows>
+                            <row rowNum="1" keyName="Tournament Year"
+                                purpose="used in closing ceremony script" validation="none" />
+                            <row rowNum="2" keyName="FLL Season Title"
+                                purpose="used in closing ceremony script" validation="none" />
+                            <row rowNum="3" keyName="Tournament Short Name"
+                                purpose="used in closing ceremony script" validation="none" />
+                            <row rowNum="4" keyName="Tournament Long Name"
+                                purpose="used in closing ceremony script" validation="none" />
+                            <row rowNum="5" keyName="Completed Script File"
+                                purpose="file name for html output file" validation="none" />
+                            <row rowNum="6" keyName="Division"
+                                purpose="used in closing ceremony script" validation="none" />
+                            <row rowNum="7" keyName="Robot Game" purpose="number of awards"
+                                validation="none" />
+                            <row rowNum="8" keyName="Innovation Project" purpose="number of awards"
+                                validation="none" />
+                            <row rowNum="9" keyName="Robot Design" purpose="number of awards"
+                                validation="none" />
+                            <row rowNum="10" keyName="Champions" purpose="number of awards"
+                                validation="none" />
+                            <row rowNum="11" keyName="Advancing" purpose="number of advancing teams"
+                                validation="none" />
+                            <row rowNum="12" keyName="Judges" purpose="number of awards"
+                                validation="none" />
+                        </tableRows>
+                    </table>
+                </worksheet>
+                <worksheet>
+                    <name>AwardList</name>
+                    <table>
+                        <tablename>AwardList</tablename>
+                        <purpose>List of all awards that could be given out</purpose>
+                        <tableColumns>
+                            <tableColumn id="1" name="Award" type="string" minOccurs="1"
+                                maxOccurs="unbounded" validation="none" />
+                        </tableColumns>
+                    </table>
+                    <table>
+                        <tablename>RobotGameAwards</tablename>
+                        <purpose>List of all Robot Game awards that could be given out</purpose>
+                        <tableColumns>
+                            <tableColumn id="1" name="Robot Game Awards" type="string" minOccurs="1"
+                                maxOccurs="unbounded" validation="none" />
+                        </tableColumns>
+                    </table>
+                </worksheet>
+                <worksheet>
+                    <name>Results and Rankings</name>
+                    <table>
+                        <tablename>TournamentData</tablename>
+                        <tableColumns>
+                            <tableColumn id="1" name="Team Number" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="2" name="Pod" type="integer" minOccurs="0"
+                                maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="3" name="Team Name" type="string"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="4" name="Robot Game Score 1" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="5" name="Robot Game Score 2" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="6" name="Robot Game Score 3" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="7" name="Max Robot Game Score" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="8" name="Robot Game Rank" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="9" name="Core Values Rank" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="10" name="Innovation Project Rank" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="11" name="Robot Design Rank" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="12" name="Champion's Score" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="13" name="Champion's Rank" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn>
+                                <id>14</id>
+                                <name>Award</name>
+                                <type>string</type>
+                                <minOccurs>1</minOccurs>
+                                <maxOccurs>unbounded</maxOccurs>
+                                <validation>yes</validation>
+                                <validationRules>
+                                    <rule>
+                                        <ruleType>warning</ruleType>
+                                        <logic>If the awards entered in this column are fewer than
+                                            the awards permitted the list of awards in the AwardList
+                                            table</logic>
+                                    </rule>
+                                    <rule>
+                                        <ruleType>error</ruleType>
+                                        <logic>If any of the awards in this column are duplicated.</logic>
+                                    </rule>
+                                </validationRules>
+                            </tableColumn>
+                            <tableColumn>
+                                <id>15</id>
+                                <name>Advance</name>
+                                <type>string</type>
+                                <minOccurs>1</minOccurs>
+                                <maxOccurs>unbounded</maxOccurs>
+                                <validation>yes</validation>
+                                <validationRules>
+                                    <rule>
+                                        <ruleType>warning</ruleType>
+                                        <logic>The maximum number of advancing teams is provided on
+                                            the Meta table, row 11, with the key = advancing. If
+                                            there are fewer teams with a Yes in this column than are
+                                            permitted, that will be a warning to the user</logic>
+                                    </rule>
+                                    <rule>
+                                        <ruleType>error</ruleType>
+                                        <logic>The maximum number of advancing teams is provided on
+                                            the Meta table, row 11, with the key = advancing. If
+                                            there are more teams with a Yes in this column than are
+                                            permitted, that will be a error to the user</logic>
+                                    </rule>
+                                </validationRules>
+                            </tableColumn>
+                        </tableColumns>
+                    </table>
+                </worksheet>
+                <worksheet>
+                    <name>Robot Game Scores</name>
+                    <purpose>Recording robot game scores</purpose>
+                    <table>
+                        <tablename>RobotGameScores</tablename>
+                        <tableColumns>
+                            <tableColumn id="1" name="Team Number" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="2" name="Team Name" type="string"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn>
+                                <id>3</id>
+                                <name>Robot Game 1 Score</name>
+                                <type>integer</type>
+                                <minOccurs>_NUMTEAMS_</minOccurs>
+                                <maxOccurs>_NUMTEAMS_</maxOccurs>
+                                <validation>yes</validation>
+                                <validationRules>
+                                    <rule>
+                                        <ruleType>error</ruleType>
+                                        <logic>All cells must be filled in with integers between 0
+                                            and 545 inclusive for this column. All cell values must
+                                            be divisible by 5. There can be no empty cells.</logic>
+                                    </rule>
+                                </validationRules>
+                            </tableColumn>
+                            <tableColumn>
+                                <id>4</id>
+                                <name>Robot Game 2 Score</name>
+                                <type>integer</type>
+                                <minOccurs>_NUMTEAMS_</minOccurs>
+                                <maxOccurs>_NUMTEAMS_</maxOccurs>
+                                <validation>yes</validation>
+                                <validationRules>
+                                    <rule>
+                                        <ruleType>error</ruleType>
+                                        <logic>All cells must be filled in with integers between 0
+                                            and 545 inclusive for this column. All cell values must
+                                            be divisible by 5. There can be no empty cells.</logic>
+                                    </rule>
+                                </validationRules>
+                            </tableColumn>
+                            <tableColumn>
+                                <id>5</id>
+                                <name>Robot Game 3 Score</name>
+                                <type>integer</type>
+                                <minOccurs>_NUMTEAMS_</minOccurs>
+                                <maxOccurs>_NUMTEAMS_</maxOccurs>
+                                <validation>yes</validation>
+                                <validationRules>
+                                    <rule>
+                                        <ruleType>error</ruleType>
+                                        <logic>All cells must be filled in with integers between 0
+                                            and 545 inclusive for this column. All cell values must
+                                            be divisible by 5. There can be no empty cells.</logic>
+                                    </rule>
+                                </validationRules>
+                            </tableColumn>
+                            <tableColumn id="6" name="Highest Robot Game Score" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                        </tableColumns>
+                    </table>
+                </worksheet>
+                <worksheet>
+                    <name>Innovation Project Input</name>
+                    <purpose>Recording Innovation Project scores</purpose>
+                    <table>
+                        <tablename>InnovationProjectResults</tablename>
+                        <validation>Columns on this worksheet with ID = 4, 5, 6, 7, 8, 9, 10, 11,
+                            12, 13 all have the same validation rules. All cells must be filled in
+                            with one of the following integers: 0, 1, 2, 3, 4</validation>
+                        <tableColumns>
+                            <tableColumn id="1" name="Team Number" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="2" name="Pod" type="integer" minOccurs="0"
+                                maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="3" name="Team Name" type="string"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="4" name="Identify - Define" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="5" name="Identify - Research (CV)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="6" name="Design - Plan" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="7" name="Design - Teamwork (CV)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="8" name="Create - Innovation (CV)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="9" name="Create - Model" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="10" name="Iterate - Sharing" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="11" name="Iterate - Improvement" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="12" name="Communicate - Impact (CV)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="13" name="Communicate - Fun (CV)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="14" name="Innovation Project Score" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="15" name="Innovation Project Rank" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                        </tableColumns>
+                    </table>
+                </worksheet>
+                <worksheet>
+                    <name>Robot Design Input</name>
+                    <purpose>Recording Robot Design scores</purpose>
+                    <table>
+                        <tablename>RobotDesignResults</tablename>
+                        <validation>Columns on this worksheet with ID = 4, 5, 6, 7, 8, 9, 10, 11,
+                            12, 13 all have the same validation rules. All cells must be filled in
+                            with one of the following integers: 0, 1, 2, 3, 4</validation>
+                        <tableColumns>
+                            <tableColumn id="1" name="Team Number" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="2" name="Pod" type="integer" minOccurs="0"
+                                maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="3" name="Team Name" type="string"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="4" name="Identify - Strategy" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="5" name="Identify - Research (CV)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="6" name="Design - Ideas (CV)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="7" name="Design - Building/Coding" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="8" name="Create - Attachments" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="9" name="Create - Code/ Sensors" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="10" name="Iterate - Testing" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="11" name="Iterate - Improvements (CV)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="12" name="Communicate - Impact (CV)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="13" name="Communicate - Fun (CV)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="14" name="Robot Design Score" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="15" name="Robot Design Rank" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                        </tableColumns>
+                    </table>
+                </worksheet>
+                <worksheet>
+                    <name>Core Values Input</name>
+                    <purpose>Recording Core Values scores</purpose>
+                    <table>
+                        <tablename>CoreValuesResults</tablename>
+                        <validation>Columns on this worksheet with ID = 14, 15, 16 all have the same
+                            validation rules. All cells must be filled in with one of the following
+                            integers: 0, 2, 3, 4</validation>
+                        <tableColumns>
+                            <tableColumn id="1" name="Team Number" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="2" name="Pod" type="integer" minOccurs="0"
+                                maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="3" name="Team Name" type="string"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="4" name="Identify - Research (CV-IP)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="5" name="Design - Teamwork (CV-IP)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="6" name="Create - Innovation (CV-IP)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="7" name="Communicate - Impact (CV-IP)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="8" name="Communicate - Fun (CV-IP)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="9" name="Identify - Research (CV-RD)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="10" name="Design - Ideas (CV-RD)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="11" name="Iterate - Improvements (CV-RD)"
+                                type="integer" minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_"
+                                validation="none" />
+                            <tableColumn id="12" name="Communicate - Impact (CV-RD)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="13" name="Communicate - Fun (CV-RD)" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="14" name="Gracious Professionalism 1" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="15" name="Gracious Professionalism 2" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="16" name="Gracious Professionalism 3" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="yes" />
+                            <tableColumn id="17" name="Gracious Professionalism Total"
+                                type="integer" minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_"
+                                validation="none" />
+                            <tableColumn id="18" name="Gracious Professionalism Score"
+                                type="integer" minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_"
+                                validation="none" />
+                            <tableColumn id="19" name="Core Values Score" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                            <tableColumn id="20" name="Core Values Rank" type="integer"
+                                minOccurs="_NUMTEAMS_" maxOccurs="_NUMTEAMS_" validation="none" />
+                        </tableColumns>
+                    </table>
+                </worksheet>
+            </worksheets>
+        </OjsExcelWorkbook>
+        <jinjaTemplate>
+            <filename>script_template.html.jinja</filename>
+            <purpose>This is a jinja template file that will be rendered into an html file, suitable
+                for an emcee to read at a closing ceremony. The file will have lists of teams, lists
+                of awardees and lists of advancing teams. There is one closing ceremony, even if
+                there are two divisions (and two OJS files). However, all of the awards are given
+                out 'per-division', with the exception of the judges awards, which are given out
+                'per-tournament'. For example, if a tournament is allocated 2 judges awards, those
+                awards can be split among both divisions, or they can both go to a single division.
+                All awards may be allocated less than the number permitted. For example, if Div 1 is
+                permitted 2 Core Values awards, the user may select only one award, but that would
+                trigger a warning just to remind the user.</purpose>
+            <variables>
+                <variable name="tournament_name"
+                    refersTo="Meta table, keyName 'Tournament Long Name'" />
+                <variable name="div1_list"
+                    refersTo="OfficialTeamList table, columns 'Team Name' and 'Team Number', sorted by 'Team Number'."
+                    instructions="This will be a list of all Div 1 teams. Include html tags with one team per line of output" />
+                <variable name="div2_list"
+                    refersTo="OfficialTeamList table, columns 'Team Name' and 'Team Number', sorted by 'Team Number'."
+                    instructions="This will be a list of all Div 2 teams. Include html tags with one team per line of output" />
+                <variable name="rg_div1_list"
+                    refersTo="TournamentData table, 'Robot Game Rank' column. Also Meta Table, keyName Robot Game."
+                    instructions="This will be a list of Div 1 teams with the highest Robot Game Rank (highest rank is the lowest number numerically. For example, first place will have a rank=1). Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="rg_div2_list"
+                    refersTo="TournamentData table, 'Robot Game Rank' column. Also Meta Table, keyName Robot Game."
+                    instructions="This will be a list of Div 2 teams with the highest Robot Game Rank (highest rank is the lowest number numerically. For example, first place will have a rank=1). Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="ip_div1_list"
+                    refersTo="TournamentData table, Award column with value = 'Innovation Project * place', reverse sorted by place."
+                    instructions="This will be a list of Div 1 teams winning an award for Innovation Project. Sort the list by place. For example, if there are awards for 2nd place and 1st place, list the 2nd place team, followed by the first place team. Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="ip_div2_list"
+                    refersTo="TournamentData table, Award column with value = 'Innovation Project * place', reverse sorted by place."
+                    instructions="This will be a list of Div 2 teams winning an award for Innovation Project. Sort the list by place. For example, if there are awards for 2nd place and 1st place, list the 2nd place team, followed by the first place team. Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="rd_div1_list"
+                    refersTo="TournamentData table, Award column with value = 'Robot Design * place', reverse sorted by place."
+                    instructions="This will be a list of Div 1 teams winning an award for Robot Design. Sort the list by place. For example, if there are awards for 2nd place and 1st place, list the 2nd place team, followed by the first place team. Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="rd_div2_list"
+                    refersTo="TournamentData table, Award column with value = 'Robot Design * place', reverse sorted by place."
+                    instructions="This will be a list of Div 2 teams winning an award for Robot Design. Sort the list by place. For example, if there are awards for 2nd place and 1st place, list the 2nd place team, followed by the first place team. Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="cv_div1_list"
+                    refersTo="TournamentData table, Award column with value = 'Core Values * place', reverse sorted by place."
+                    instructions="This will be a list of Div 1 teams winning an award for Core Values. Sort the list by place. For example, if there are awards for 2nd place and 1st place, list the 2nd place team, followed by the first place team. Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="cv_div2_list"
+                    refersTo="TournamentData table, Award column with value = 'Core Values * place', reverse sorted by place."
+                    instructions="This will be a list of Div 2 teams winning an award for Core Values. Sort the list by place. For example, if there are awards for 2nd place and 1st place, list the 2nd place team, followed by the first place team. Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="ja_list"
+                    refersTo="TournamentData table, Award column with value = 'Judges Award *'"
+                    instructions="This will be a list of Div 1 and Div 2 teams winning a judges award. Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="champ_div1_list"
+                    refersTo="TournamentData table, Award column with value = 'Champions * place', reverse sorted by place."
+                    instructions="This will be a list of Div 1 teams winning a Champions award. Sort the list by place. For example, if there are awards for 2nd place and 1st place, list the 2nd place team, followed by the first place team. Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="champ_div2_list"
+                    refersTo="TournamentData table, Award column with value = 'Champions * place', reverse sorted by place."
+                    instructions="This will be a list of Div 2 teams winning a Champions award. Sort the list by place. For example, if there are awards for 2nd place and 1st place, list the 2nd place team, followed by the first place team. Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="adv_div1_list"
+                    refersTo="TournamentData table, Advance column with value = 'Yes'"
+                    instructions="This will be a list of advancing Div 1 teams. Include html tags with one team per line of output. Include team number and team name." />
+                <variable name="adv_div2_list"
+                    refersTo="TournamentData table, Advance column with value = 'Yes'"
+                    instructions="This will be a list of advancing Div 2 teams. Include html tags with one team per line of output. Include team number and team name." />
+            </variables>
+        </jinjaTemplate>
+    </inputs>
+    <cli>
+        <arg name="--dir">PATH (default = script folder)</arg>
+        <arg name="--dry-run">Validate only, do not write output</arg>
+        <arg name="--output">Override output path</arg>
+        <arg name="--verbose">Verbose logging</arg>
+        <arg name="--quiet">Minimal output</arg>
+    </cli>
+    <requirements>
+        <crossPlatform>Use pathlib/os.path and robust globbing; avoid fragile filename slicing</crossPlatform>
+        <validation>
+            <centralize>Move Excel checks into reusable functions</centralize>
+            <errors>Return structured error objects and clear messages listing cell coords/problems.
+                Stop further processing and exit gracefully.</errors>
+            <warnings>Return structured warning objects and clear messages listing cell
+                coords/problems. Provide user options to stop further processing and exit gracefully
+                or to continue processing.</warnings>
+            <parsing>Robust numeric parsing (skip empties, trim whitespace)</parsing>
+        </validation>
+        <logging>Use Python logging with levels; use colorama only when stderr is a TTY</logging>
+        <errors>
+            <error>Detect ~*.xlsm temp files and advise to close Excel; fail gracefully</error>
+            <error>All files listed in filelist.txt must be located in the execution folder</error>
+        </errors>
+    </requirements>
+    <deliverables>
+        <code>Python code saved in a file (script-maker-mac-win-test.py) not to overwrite any existing project files</code>
+        <docs>Short CHANGELOG entries as required</docs>
+    </deliverables>
+    <exitAndReturnCodes>
+        <success>0</success>
+        <missingFiles>1</missingFiles>
+        <validationError>2</validationError>
+        <templateError>3</templateError>
+        <unexpected>4</unexpected>
+    </exitAndReturnCodes>
+    <notes>Keep implementation modular and PR-friendly; preserve user-visible wording unless
+        overridden by CLI flags.</notes>
+</developerPrompt>
