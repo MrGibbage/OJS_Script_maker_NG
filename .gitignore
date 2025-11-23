@@ -7,3 +7,5 @@
 *.zip
 *.exe
 *.xlsx
+!/2025/sample/
+!/2025/sample/**
