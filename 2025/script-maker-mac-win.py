@@ -9,8 +9,6 @@ from openpyxl.utils.cell import (
 )
 from openpyxl.worksheet.table import Table
 
-# pip install pyyaml
-import yaml
 import warnings
 
 import os, sys, re, glob
