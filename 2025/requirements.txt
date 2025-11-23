@@ -4,6 +4,5 @@ Jinja2
 openpyxl
 print-color
 openpyxl
-pywin32
 xlwings
 colorama

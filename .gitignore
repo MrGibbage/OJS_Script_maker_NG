@@ -4,6 +4,7 @@
 /.venv
 /2024/tournaments
 /2025/tournaments
+/2025/build/
 *.zip
 *.exe
 *.xlsx
