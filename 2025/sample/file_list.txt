@@ -1,3 +1,3 @@
-2025-vadc-fll-sample-ojs-norfolk-div1.xlsm
-2025-vadc-fll-sample-ojs-norfolk-div2.xlsm
+2025-vadc-fll-challenge-sample-ojs-norfolk-div1.xlsm
+2025-vadc-fll-challenge-sample-ojs-norfolk-div2.xlsm
 script_template.html.jinja
