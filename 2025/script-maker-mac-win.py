@@ -21,6 +21,8 @@ from typing import List, Dict
 # pip install colorama
 from colorama import Fore, Back, Style, init
 
+import configparser
+
 # To create windows exe executable, run
 # .venv\Scripts\pyinstaller.exe -F 2025\script-maker-mac-win.py -n script_maker-win
 # in the project folder. The executable will be saved in the 'dist'

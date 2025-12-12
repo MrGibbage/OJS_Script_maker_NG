@@ -6,3 +6,4 @@ print-color
 openpyxl
 xlwings
 colorama
+json5

@@ -1,0 +1,15 @@
+{
+  "season_yr": "2025",
+  "season_name": "Unearthed",
+  "notes_filename": "This is the excel file with the list of all tournaments",
+  "filename": "2025-FLL-Qualifier-Tournaments.xlsx",
+  "notes_template": "This is the template OJS that will be copied into each of the tournament folders (after being modified for each tournament)",
+  "tournament_template": "2025-Qualifier-Template.xlsm",
+  "notes_copy": "Other files to be copied into each of the tournament sub-folders when they are created. Type this as a list separated by commas. The OJS will automatically be copied so it does not need to be on this list.",
+  "copy_file_list": [
+    "script_maker-win.exe",
+    "script_maker-mac",
+    "script_template.html.jinja",
+    "instructions.pdf"
+  ]
+}
