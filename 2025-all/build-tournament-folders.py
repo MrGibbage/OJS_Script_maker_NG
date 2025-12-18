@@ -1,4 +1,20 @@
-# To create a windows executable file, 
+"""Utility to prepare per-tournament folders and populate OJS spreadsheets.
+
+This script reads a season manifest (`season.json`) and a master
+`TournamentList` (or `DivTournamentList`) workbook to create a folder for
+each tournament, copy template files, and populate the OJS (Online Judge
+System) spreadsheet tables with team/award/meta information.
+
+Helpers use `openpyxl` to manipulate tables inside each OJS file and
+`pandas` for convenient table-level I/O. Several functions try to preserve or
+replicate workbook features such as data validation, conditional formatting,
+formulas and cell styles when expanding table rows.
+
+The script uses best-effort error handling so a single malformed cell or
+formatting object does not abort the whole run.
+"""
+
+# To create a windows executable file,
 # first install pyinstaller, with
 # pip install pyinstaller
 # then run
@@ -24,6 +40,8 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.cell import Cell
 from openpyxl.styles import PatternFill
 from openpyxl.formatting.rule import Rule, CellIsRule, FormulaRule
+from copy import copy as _copy
+from openpyxl.worksheet.datavalidation import DataValidation
 
 # pip install print-color
 from colorama import Fore, Back, Style, init
@@ -45,6 +63,7 @@ SHEET_PASSWORD: str = "skip"
 import json
 from typing import Union, Dict, Any, Sequence
 
+
 def print_error(errormsg: str, e: Exception):
     print(Fore.RED)
     print(f"{errormsg}\n{e}")
@@ -52,8 +71,153 @@ def print_error(errormsg: str, e: Exception):
     print(Fore.RESET)
     sys.exit(1)
 
+
+def _copy_data_validations_for_range(
+    ws: Worksheet,
+    start_col_idx: int,
+    end_col_idx: int,
+    first_data_row: int,
+    new_end_row: int,
+):
+    """
+    Duplicate any data validations that apply to the template data row (first_data_row)
+    and add the same validation for the full new range first_data_row..new_end_row across
+    only the original validation's columns intersected with start_col_idx..end_col_idx.
+    """
+    try:
+        existing = list(ws.data_validations.dataValidation)
+    except Exception:
+        existing = []
+
+    for dv in existing:
+        try:
+            # iterate each range the validation currently applies to
+            for rng in dv.ranges:
+                try:
+                    cr = CellRange(str(rng))
+                except Exception:
+                    continue
+
+                # Only consider ranges that include the template data row
+                if not (cr.min_row <= first_data_row <= cr.max_row):
+                    continue
+
+                # Determine intersection of columns between the original dv range and our target table columns
+                orig_min_col = cr.min_col
+                orig_max_col = cr.max_col
+                new_min_col = max(orig_min_col, start_col_idx)
+                new_max_col = min(orig_max_col, end_col_idx)
+
+                if new_min_col > new_max_col:
+                    # no column overlap with this table
+                    continue
+
+                # build the new target range for the intersection columns
+                new_range = f"{get_column_letter(new_min_col)}{first_data_row}:{get_column_letter(new_max_col)}{new_end_row}"
+
+                # create a new DataValidation copying core properties
+                newdv = DataValidation(
+                    type=dv.type,
+                    formula1=getattr(dv, "formula1", None),
+                    formula2=getattr(dv, "formula2", None),
+                    allow_blank=getattr(dv, "allow_blank", None),
+                    operator=getattr(dv, "operator", None),
+                    showDropDown=getattr(dv, "showDropDown", None),
+                    error=getattr(dv, "error", None),
+                    errorTitle=getattr(dv, "errorTitle", None),
+                    prompt=getattr(dv, "prompt", None),
+                    promptTitle=getattr(dv, "promptTitle", None),
+                )
+
+                # add the new range and attach to worksheet
+                try:
+                    newdv.add(new_range)
+                    ws.add_data_validation(newdv)
+                except Exception:
+                    # best-effort: skip if we cannot add this cloned validation
+                    continue
+        except Exception:
+            # best-effort: don't abort on any unexpected validation object shape
+            continue
+
+
+def _extend_conditional_formatting_for_range(
+    ws: Worksheet,
+    start_col_letter: str,
+    end_col_letter: str,
+    first_data_row: int,
+    new_end_row: int,
+):
+    """
+    Duplicate conditional-formatting rules that cover the template data row
+    and add equivalent rules for the new range.
+    """
+    try:
+        cf_rules = getattr(ws.conditional_formatting, "_cf_rules", {})
+    except Exception:
+        cf_rules = {}
+
+    new_range = f"{start_col_letter}{first_data_row}:{end_col_letter}{new_end_row}"
+
+    # cf_rules keys may be space-separated ranges; iterate safely
+    for key, rules in list(cf_rules.items()):
+        try:
+            # key may be e.g. 'A2:A10' or 'A2:A10 B2:B10' -> split and examine each
+            for sub in str(key).split():
+                try:
+                    cr = CellRange(sub)
+                except Exception:
+                    continue
+                # if the rule applied to the template data row, clone rules for new_range
+                if cr.min_row <= first_data_row <= cr.max_row:
+                    for rule in rules:
+                        try:
+                            ws.conditional_formatting.add(new_range, rule)
+                        except Exception:
+                            # some rule objects may not be directly re-addable; skip if so
+                            continue
+        except Exception:
+            continue
+
+
+def _to_int(val: Any, default: int = 0) -> int:
+    """
+    Safely coerce val to an int.
+    Accepts:
+      - pandas.Series (uses first element)
+      - numpy arrays (uses first element)
+      - lists/tuples (uses first element)
+      - scalars (returned as int if possible)
+    Returns `default` on missing/NaN/uncoercible values.
+    """
+    try:
+        # pandas Series -> first element
+        if isinstance(val, pd.Series):
+            if val.empty:
+                return default
+            v = val.iat[0]
+        # numpy array -> first element
+        elif isinstance(val, np.ndarray):
+            if val.size == 0:
+                return default
+            v = val.flat[0]
+        # sequence -> first element
+        elif isinstance(val, (list, tuple)):
+            if len(val) == 0:
+                return default
+            v = val[0]
+        else:
+            v = val
+
+        if pd.isna(v):
+            return default
+        return int(v)
+    except Exception:
+        return default
+
+
 def add_table_dataframe(
-    xlsx_path: str,
+    wb: Workbook,
     sheet_name: str,
     table_name: str,
     data: pd.DataFrame,
@@ -68,14 +232,19 @@ def add_table_dataframe(
     Returns the number of rows written.
     """
     if data is None or data.empty:
+        print_error("Trying to add_table_dataframe, but data is none")
         return 0
+    else:
+        print("Here's the dataframe:")
+        print(data)
 
-    wb = load_workbook(xlsx_path, read_only=False, keep_vba=keep_vba)
     if sheet_name not in wb.sheetnames:
+        print_error(f"{sheet_name} worksheet not found")
         raise KeyError(f"Sheet not found: {sheet_name}")
     ws = wb[sheet_name]
 
     if table_name not in ws.tables:
+        print_error(f"{table_name} table not found")
         raise KeyError(f"Table {table_name!r} not found on sheet {sheet_name!r}")
     table = ws.tables[table_name]
     table_range = table.ref  # e.g. "C2:F20"
@@ -83,7 +252,9 @@ def add_table_dataframe(
     # header row and data rows within the table ref
     table_head = ws[table_range][0]
     table_data_rows = ws[table_range][1:]
-    headers = [c.value.strip() if isinstance(c.value, str) else c.value for c in table_head]
+    headers = [
+        c.value.strip() if isinstance(c.value, str) else c.value for c in table_head
+    ]
 
     # Normalize DataFrame column names (strip strings)
     df = data.copy()
@@ -109,10 +280,12 @@ def add_table_dataframe(
     # Fill existing blank data rows first
     for row_tuple in table_data_rows:
         if df_iter_index >= total_rows:
+            print("about to break")
             break
         # consider a row blank if all cells are None or blank strings
         if all(
-            (cell.value is None) or (isinstance(cell.value, str) and cell.value.strip() == "")
+            (cell.value is None)
+            or (isinstance(cell.value, str) and cell.value.strip() == "")
             for cell in row_tuple
         ):
             target_row_idx = row_tuple[0].row
@@ -141,11 +314,12 @@ def add_table_dataframe(
         end_col_letter = coordinate_from_string(end_cell)[0]
         table.ref = f"{start_cell}:{end_col_letter}{current_row}"
 
-    wb.save(xlsx_path)
     return rows_written
 
 
-def read_table_as_df(xlsx_path: str, sheet_name: str, table_name: str, require_table: bool = True) -> pd.DataFrame:
+def read_table_as_df(
+    xlsx_path: str, sheet_name: str, table_name: str, require_table: bool = True
+) -> pd.DataFrame:
     """
     Read an Excel table (ListObject) by name into a pandas DataFrame.
 
@@ -169,20 +343,26 @@ def read_table_as_df(xlsx_path: str, sheet_name: str, table_name: str, require_t
 
     if table_name not in ws.tables:
         if require_table:
-            raise KeyError(f"Table {table_name!r} not found on sheet {sheet_name!r} in {xlsx_path}")
+            raise KeyError(
+                f"Table {table_name!r} not found on sheet {sheet_name!r} in {xlsx_path}"
+            )
         return pd.DataFrame()
 
     table = ws.tables[table_name]
     ref = table.ref  # expected e.g. "C2:F20"
     if not isinstance(ref, str) or ":" not in ref:
-        raise ValueError(f"Unexpected table.ref for {table_name!r} on {sheet_name!r}: {ref!r}")
+        raise ValueError(
+            f"Unexpected table.ref for {table_name!r} on {sheet_name!r}: {ref!r}"
+        )
 
     try:
         start, end = ref.split(":")
         start_col, start_row = coordinate_from_string(start)
         end_col, end_row = coordinate_from_string(end)
     except Exception as e:
-        raise ValueError(f"Could not parse table.ref '{ref}' for {table_name!r}: {e}") from e
+        raise ValueError(
+            f"Could not parse table.ref '{ref}' for {table_name!r}: {e}"
+        ) from e
 
     header_row_idx = int(start_row) - 1  # pandas header is 0-based
     usecols = f"{start_col}:{end_col}"
@@ -214,7 +394,9 @@ def read_table_as_df(xlsx_path: str, sheet_name: str, table_name: str, require_t
             engine="openpyxl",
         )
     except Exception as e:
-        raise RuntimeError(f"pandas.read_excel failed for table {table_name!r} on sheet {sheet_name!r}: {e}") from e
+        raise RuntimeError(
+            f"pandas.read_excel failed for table {table_name!r} on sheet {sheet_name!r}: {e}"
+        ) from e
 
     # basic cleanup: strip column names and trim string values safely (vectorized where possible)
     df.columns = df.columns.str.strip()
@@ -259,7 +441,9 @@ def read_table_as_dict(
     df = read_table_as_df(xlsx_path, sheet_name, table_name, require_table=True)
 
     if df.shape[1] != 2:
-        raise ValueError(f"Table {table_name!r} on sheet {sheet_name!r} must have exactly 2 columns (found {df.shape[1]})")
+        raise ValueError(
+            f"Table {table_name!r} on sheet {sheet_name!r} must have exactly 2 columns (found {df.shape[1]})"
+        )
 
     # Determine which columns to use
     col_names = list(df.columns)
@@ -267,7 +451,9 @@ def read_table_as_dict(
     value_col_name = value_col if value_col is not None else col_names[1]
 
     if key_col_name not in df.columns or value_col_name not in df.columns:
-        raise KeyError(f"Specified key/value columns not found in table columns: {df.columns.tolist()}")
+        raise KeyError(
+            f"Specified key/value columns not found in table columns: {df.columns.tolist()}"
+        )
 
     mapping: dict = {}
     for idx, row in df.iterrows():
@@ -283,12 +469,21 @@ def read_table_as_dict(
         val = raw_val.strip() if isinstance(raw_val, str) else raw_val
 
         if require_unique_keys and key in mapping:
-            raise ValueError(f"Duplicate key found in table {table_name!r} on sheet {sheet_name!r}: {key!r}")
+            raise ValueError(
+                f"Duplicate key found in table {table_name!r} on sheet {sheet_name!r}: {key!r}"
+            )
         mapping[key] = val
 
     return mapping
 
+
 def _remove_note_keys(obj: Any) -> Any:
+    """Recursively strip out any dict keys beginning with 'note' (case-ins).
+
+    This is used to allow authors of JSON config files to include free-form
+    'note' keys for human-readable comments; they will be removed before the
+    data structure is consumed by the rest of the script.
+    """
     if isinstance(obj, dict):
         out = {}
         for k, v in obj.items():
@@ -299,6 +494,7 @@ def _remove_note_keys(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_remove_note_keys(i) for i in obj]
     return obj
+
 
 def load_json_without_notes(path: str) -> dict:
     """
@@ -317,6 +513,12 @@ def load_json_without_notes(path: str) -> dict:
 
 # creates the subfolders for each tournament
 def create_folder(newpath):
+    """Create `newpath` if it does not exist.
+
+    This is a thin helper that prints success and exits via `print_error`
+    if directory creation fails for any reason (permission, path invalid,
+    etc.). Keeping a single helper centralizes the messaging style.
+    """
     if os.path.exists(newpath):
         return
     try:
@@ -329,223 +531,184 @@ def create_folder(newpath):
 
 # copies the files into the tournament folders
 def copy_files(item: pd.Series):
+    """Copy extra files and the OJS template into the tournament folder.
+
+    The `item` parameter is a row from the tournaments DataFrame and is
+    expected to contain a `Short Name` (folder name) and an `OJS_FileName`.
+    Global variables used:
+      - `extrafilelist`: list of filenames to copy into each tournament folder
+      - `template_file`: path to the OJS template workbook to copy
+      - `dir_path`: base directory containing `tournaments/`
+
+    Any copy error is treated as fatal using `print_error` so the operator can
+    inspect and fix missing files before re-running.
+    """
     print(item)
     for filename in extrafilelist:
         try:
+            # destination folder for this tournament
             newpath = dir_path + "\\tournaments\\" + item["Short Name"] + "\\"
             shutil.copy(dir_path + "\\" + filename, newpath)
         except Exception as e:
             print_error(f"Could not copy file: {filename} to {newpath}", e)
-    # next copy the template files
-    ojsfilelist = []
-    if pd.notna(item["D1_OJS"]):
-        ojsfilelist.append(item["D1_OJS"])
-    if pd.notna(item["D2_OJS"]):
-        ojsfilelist.append(item["D2_OJS"])
 
-    for filename in ojsfilelist:
-        try:
-            folder = dir_path + "\\tournaments\\" + item["Short Name"] + "\\"
-            print(type(folder), folder)
-            print(type(filename), filename)
-            shutil.copy(
-                template_file,
-                folder + filename,
-            )
-        except Exception as e:
-            print_error(f'Could not copy OJS file: {template_file} to {folder}\\{filename}', e)
-    
-    # create a file list for the tournament folder
-    directory = dir_path + "\\tournaments\\" + item["Short Name"]
-    file_list = os.listdir(directory)
-    # Remove any files we don't want in the file_list
-    # in particular, we won't need the script_maker programs for two reasons
-    # 1) the script_maker program is the program they will be running, so it can't be missing
-    # 2) no need to check if the script_maker for other OS'es are present
+    # Copy the OJS template into place using the filename specified in the
+    # tournament list (this may vary per-division or per-tournament).
     try:
-        file_list.remove("script_maker-win.exe")
-    except:
-        pass
-
-    try:
-        file_list.remove("script_maker-mac")
-    except:
-        pass
+        new_ojs_file = (
+            dir_path
+            + "\\tournaments\\"
+            + item["Short Name"]
+            + "\\"
+            + item["OJS_FileName"]
+        )
+        shutil.copy(
+            template_file,
+            new_ojs_file,
+        )
+    except Exception as e:
+        print_error(f"Could not copy OJS file: {template_file} to \\{new_ojs_file}", e)
 
 
 # edits the OJS spreadsheets with the correct tournament information
-def set_up_tapi_worksheet(tournament: pd.Series):
+def set_up_tapi_worksheet(tournament: pd.Series, book: Workbook):
+    """Populate the 'Team and Program Information' table in the open workbook.
+
+    - `tournament` is a pandas Series representing the tournament row.
+    - `book` is an open openpyxl `Workbook` object for the tournament's OJS file.
+
+    This function gathers the assigned teams from the global `dfAssignments`
+    table, normalizes the columns to the expected TAPI format and then calls
+    `add_table_dataframe` to overwrite or extend the `OfficialTeamList` table
+    in the workbook.
+    """
     # open the OJS workbook
-    for d in ["D1", "D2"]:
-        # print(type(tournament[d + "_OJS"]), tournament[d + "_OJS"])
-        if isinstance(tournament[d + "_OJS"], float):
-            continue
-        print(f"Setting up Tournament Team and Program Information for {tournament["Short Name"]} {d}")
-        divassignees: pd.DataFrame = dfAssignments[
-            (dfAssignments["Tournament"] == tournament["Short Name"])
+    # print(type(tournament[d + "_OJS"]), tournament[d + "_OJS"])
+    d = ""
+    print(Fore.RESET)
+    if using_divisions:
+        d = tournament["Div"]
+        if isinstance(tournament["OJS_FileName"], float):
+            print_error("Can't get the OJS File name from the tournament spreadsheet")
+        print(
+            f"Setting up Tournament Team and Program Information for {tournament["Short Name"]} {d}"
+        )
+        assignees: pd.DataFrame = dfAssignments[
+            (dfAssignments["Short Name"] == tournament["Short Name"])
             & (dfAssignments["Div"] == d)
         ]
-        print(divassignees)
-        print(Fore.RESET)
-        print(f'There are {len(divassignees)} teams in this {d} {tournament["Short Name"]} tournament')
-        if len(divassignees.index) > 0:
-            try:
-                # print(divassignees)
-                ojsfile = (
-                    dir_path
-                    + "\\tournaments\\"
-                    + tournament["Short Name"]
-                    + "\\"
-                    + tournament[d + "_OJS"]
-                )
-                ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
-                ws = ojs_book["Team and Program Information"]
-                table: Table = ws.tables["OfficialTeamList"]
-                table_range: str = table.ref  # should return a string C2:F3
-                start_cell = table_range.split(":")[0]  # should return 'C2'
-                coords = coordinate_from_string(start_cell)
-                start_col = column_index_from_string(coords[0])
-                start_index = divassignees.index[0]
-                colonPos = (table.ref).find(":")
-                print(Fore.RESET)
-                print(f'About to resize the table {table.ref}, {table.ref[:colonPos]}, {re.sub(r'\d', '', table.ref[colonPos + 1])}, {str(len(divassignees) + 2)}')
-                table.ref = (
-                    table.ref[:colonPos]
-                    + ":"
-                    + re.sub(r"\d", "", table.ref[colonPos + 1])
-                    + str(len(divassignees) + 2)
-                )
-                for i, row in divassignees.iterrows():
-                    # cell = f'{get_column_letter(start_col)}{i + 3 - start_index}'
-                    # print(f'Cell: {cell}, setting value {row['Team #']}')
-                    # ws[cell] = row['Team #']
-                    thisrow = i + 3 - start_index
-                    ws.cell(row=thisrow, column=start_col).value = row["Team #"]
-                    ws.cell(row=thisrow, column=start_col + 1).value = row["Team Name"]
-                    ws.cell(row=thisrow, column=start_col + 2).value = row["Coach Name"]
+        print(
+            f'There are {len(assignees)} teams in this {tournament["Short Name"]} {d} tournament'
+        )
+    else:
+        if isinstance(tournament["OJS_FileName"], float):
+            print_error("Can't get the OJS File name from the tournament spreadsheet")
+        print(
+            f"Setting up Tournament Team and Program Information for {tournament["Short Name"]}"
+        )
+        assignees: pd.DataFrame = dfAssignments[
+            (dfAssignments["Short Name"] == tournament["Short Name"])
+        ]
+        print(
+            f'There are {len(assignees)} teams in this {tournament["Short Name"]} tournament'
+        )
 
-                # Save the workbook
-                print(Fore.RESET)
-                print(f"Saving workbook. OfficialTeamList ref: {table.ref}")
-                ojs_book.save(ojsfile)
-                # ojs_book.close()
-            except Exception as e:
-                print_error(f"There was an error setting up the TAPI worksheet:", e)
+    print(f"almost done creating the tapi dataframe. {assignees}")
 
-def set_up_award_worksheet(tournament: pd.Series):
+    # format the assignees df so it matches the TAPI list
+    keep = ["Team #", "Team Name", "Coach Name"]
+    keep_safe = [c for c in keep if c in assignees.columns]
+    assignees = assignees[keep_safe]
+    assignees["Pod Number"] = 0
+    print(f"adding the tapi dataframe.")
+    print(f"{assignees}")
+    add_table_dataframe(
+        book,
+        "Team and Program Information",
+        "OfficialTeamList",
+        assignees.sort_values(by="Team #", ascending=True),
+    )
+
+
+def set_up_award_worksheet(tournament: pd.Series, book: Workbook):
+    """Prepare award tables used by OJS dropdowns and closing scripts.
+
+    Reads award counts from the tournament row, looks up award labels from
+    `dfAwardDef` and writes two tables on the `AwardListDropdowns` sheet:
+      - `RobotGameAwards`: robot-game specific labels (kept separate)
+      - `AwardListDropdowns`: other judged awards used for dropdowns and scripts
+
+    The function tolerates missing label cells and treats non-numeric counts
+    as zero using `_to_int`.
+    """
     # This will read the awards allocations for each tournament (at the tournament
     # level--no divisions) and create the AwardList table which goes on the
     # normally hidden AwardList worksheet. This list is used to create the
     # dropdowns in the award column on the OJS
-    s1 = tournament.fillna(0)
-    ojsfile = (
-        dir_path
-        + "\\tournaments\\"
-        + s1["Short Name"]
-        + "\\"
-        + s1["D1_OJS"]
-    )
+    thisDiv = tournament["Div"] if using_divisions else ""
     print(Fore.RESET)
-    print(f"Setting up Tournament Awards for {s1["Short Name"]}")
-    j_cols = s1.filter(regex=f"^J_")
-    print(j_cols)
-    j_awards_df = pd.DataFrame(columns=["Award"])
-    for this_col_name, series in j_cols.items():
-        print(f"Working the {this_col_name} awards.")
-        print(f"There are {series} places for this award.")
-        for award_num in range(0, int(series)):
-            # print("Adding new judged award")
-            # print(find_item_by_col_name(d=config, col_name=this_col_name))
-            # j_awards_df.loc[len(j_awards_df)] = [config["TOURNAMENT_AWARDS"][find_item_by_col_name(d=config["TOURNAMENT_AWARDS"], col_name=this_col_name)]["dropdown"]["p" + str(award_num + 1)]]
-            j_awards_df.loc[len(j_awards_df)] = dfAwardDef.loc[dfAwardDef["ColumnName"] == this_col_name, "Label" + str(award_num + 1)]
-    add_table_dataframe(ojsfile, "AwardListDropdowns", "AwardListDropdowns", j_awards_df)
+    print(
+        f"Setting up Tournament Division Awards for {tournament['Short Name']} {thisDiv}"
+    )
+    print(tournament)
 
     # Robot Game
-    rg_awards = int(s1["P_AWD_RG"])
+    rg_raw = (
+        tournament.get("P_AWD_RG")
+        if hasattr(tournament, "get")
+        else tournament["P_AWD_RG"]
+    )
+    try:
+        rg_awards = int(rg_raw) if not pd.isna(rg_raw) else 0
+    except Exception as e:
+        print_error(f"Could not get the number of robot game awards: {e}")
+        rg_awards = 0
     print(f"There are {rg_awards} robot game awards")
     rg_awards_df = pd.DataFrame(columns=["Robot Game Awards"])
-    for rg_award_num in range(0, rg_awards):
-        rg_awards_df.loc[len(rg_awards_df)] = [config["TOURNAMENT_AWARDS"]["Robot Game"]["dropdown"]["p" + str(rg_award_num + 1)]]
-    add_table_dataframe(ojsfile, "AwardListDropdowns", "RobotGameAwards", rg_awards_df)
-
-
-def set_up_award_worksheet_div(tournament: pd.Series):
-    for d in ["D1", "D2"]:
-        ojsfile = (
-            dir_path
-            + "\\tournaments\\"
-            + tournament["Short Name"]
-            + "\\"
-            + tournament[d + "_OJS"]
-        )
-        print(Fore.RESET)
-        print(f"Setting up Tournament Division Awards for {tournament["Short Name"]} {d}")
-        divawards: pd.DataFrame = dfDivAwards[
-            (dfDivAwards["Tournament"] == tournament["Short Name"])
-            & (dfDivAwards["Div"] == d)
-        ]
-        print(divawards)
-
-        # Robot Game
-        if tournament[d + "_OJS"] is None:
-            print(Fore.RESET)
-            print(f"Nothing for tournament[{d}]")
-            continue
-        
-        rg_awards = divawards["P_AWD_RG"].iloc[0]
-        print(f"There are {rg_awards} robot game awards")
-        rg_awards_df = pd.DataFrame(columns=["Robot Game Awards"])
-        for rg_award_num in range(0, rg_awards):
-            rg_awards_df.loc[len(rg_awards_df)] = dfAwardDef.loc[dfAwardDef["ColumnName"] == "P_AWD_RG", "Label" + str(rg_award_num + 1)]
-            # rg_awards_df.loc[len(rg_awards_df)] = [config["TOURNAMENT_AWARDS"]["Robot Game"]["dropdown"]["p" + str(rg_award_num + 1)]]
-        add_table_dataframe(ojsfile, "AwardListDropdowns", "RobotGameAwards", rg_awards_df)
-
-        # Other judged awards
-        j_cols = divawards.filter(regex=f"^J_")
-        # print(str(config).replace("'", '"'))
-        j_awards_df = pd.DataFrame(columns=["Award"])
-        for this_col_name, series in j_cols.items():
-            print(f"Working the {this_col_name} awards")
-            for award_num in range(0, series.iloc[0]):
-                # print("Adding new judged award")
-                # print(find_item_by_col_name(d=config, col_name=this_col_name))
-                j_awards_df.loc[len(j_awards_df)] = dfAwardDef.loc[dfAwardDef["ColumnName"] == this_col_name, "Label" + str(award_num + 1)]
-        add_table_dataframe(ojsfile, "AwardListDropdowns", "AwardListDropdowns", j_awards_df)
-
-
-def do_division_awards(div: str, d: Dict, tournament: pd.Series):
-    d["FILES"]["ojs1"] = tournament["D1_OJS"]
-    d[div] = {}
-    d[div]["notes"] = "If your tournament uses divisions, set up the awards here. If you set div1 to false above, this section will be ignored. Same for div2 and the D2 section below."
-    print(f"Writing division awards for {div} to the config json file")
-    print(dfDivAwards.loc[(dfDivAwards["Tournament"] == tournament["Short Name"]) & (dfDivAwards["Div"] == div)])
-    awd_cols = dfDivAwards.filter(regex=r'^(?:J_|P_)').loc[(dfDivAwards["Tournament"] == tournament["Short Name"]) & (dfDivAwards["Div"] == div)]
-    for this_awd_col, this_awd_qty in awd_cols.items():
-        # build the award entry using qty and dropdown labels
-        this_awd_name = dfAwardDef.loc[dfAwardDef["ColumnName"] == this_awd_col, "Name"]
-        awd_conf = config["TOURNAMENT_AWARDS"].get(this_awd_name, {})
-
-        # normalize quantity to an int (safe fallback to 0)
+    for rg_award_num in range(1, rg_awards + 1):
+        thisLabel = "Label" + str(rg_award_num)
+        # select the matching cell; loc with a boolean mask returns a Series,
+        # so extract the first element safely (or None if missing)
+        sel = dfAwardDef.loc[dfAwardDef["ColumnName"] == "P_AWD_RG", thisLabel]
         try:
-            qty = int(this_awd_qty.iloc[0])
+            thisValue = sel.iat[0]  # first scalar value from the Series
         except Exception:
-            qty = 0
+            # fallback: if sel is already a scalar or empty, handle gracefully
+            thisValue = sel if not (hasattr(sel, "__len__") and len(sel) == 0) else None
+        rg_awards_df.loc[len(rg_awards_df)] = [thisValue]
 
-        # store qty as string to match desired JSON output and build places as list of dicts
-        d[div][this_awd_name] = {"qty": str(qty), "places": []}
+    # The sheet name is AwardListDropdowns, but there are two tables on that sheet: one
+    # is the actual awards dropdown list, but the other is for robot game. We don't
+    # put the RG awards in the dropdown list because they are selected automatically
+    # based on score. The list is used for the closing ceremony script, so it is
+    # still needed.
+    add_table_dataframe(book, "AwardListDropdowns", "RobotGameAwards", rg_awards_df)
 
-        dropdown = awd_conf.get("dropdown", {}) if isinstance(awd_conf, dict) else {}
-        places = []
-        for i in range(qty):
-            pkey = f"p{i+1}"
-            label = dropdown.get(pkey, "")  # fallback to empty string if missing
-            places.append({"place": str(i + 1), "label": label})
+    # Other judged awards
+    j_cols = tournament.filter(regex=f"^J_")
+    # print(str(config).replace("'", '"'))
+    j_awards_df = pd.DataFrame(columns=["Award"])
+    for this_col_name, series in j_cols.items():
+        count = _to_int(series)
+        for award_num in range(1, count + 1):
+            # print(find_item_by_col_name(d=config, col_name=this_col_name))
+            label_col = "Label" + str(award_num)
+            sel = dfAwardDef.loc[dfAwardDef["ColumnName"] == this_col_name, label_col]
+            try:
+                thisValue = sel.iat[0]
+            except Exception:
+                thisValue = (
+                    sel if not (hasattr(sel, "__len__") and len(sel) == 0) else None
+                )
+            pos = len(j_awards_df)
+            j_awards_df.loc[pos] = [thisValue]
+    add_table_dataframe(book, "AwardListDropdowns", "AwardListDropdowns", j_awards_df)
 
-        d[div][this_awd_name]["places"] = places
 
-def set_up_meta_worksheet(tournament: pd.Series):
+def set_up_meta_worksheet(tournament: pd.Series, book: Workbook):
     print(Fore.RESET)
-    print(f"Setting up meta worksheet for {tournament["Short Name"]}")
+    d = tournament["Div"] if using_divisions else ""
+    print(f"Setting up meta worksheet for {tournament["Short Name"]} {d}")
     print(tournament)
     scriptfile = (
         dir_path
@@ -555,115 +718,132 @@ def set_up_meta_worksheet(tournament: pd.Series):
     )
     dfMeta = pd.DataFrame(columns=["Key", "Value"])
     dfMeta.loc[len(dfMeta)] = {"Key": "Tournament Year", "Value": config["season_yr"]}
-    dfMeta.loc[len(dfMeta)] = {"Key": "FLL Season Title", "Value": config["season_name"]}
-    dfMeta.loc[len(dfMeta)] = {"Key": "Tournament Short Name", "Value": tournament["Short Name"]}
-    dfMeta.loc[len(dfMeta)] = {"Key": "Tournament Long Name", "Value": tournament["Long Name"]}
+    dfMeta.loc[len(dfMeta)] = {
+        "Key": "FLL Season Title",
+        "Value": config["season_name"],
+    }
+    dfMeta.loc[len(dfMeta)] = {
+        "Key": "Tournament Short Name",
+        "Value": tournament["Short Name"],
+    }
+    dfMeta.loc[len(dfMeta)] = {
+        "Key": "Tournament Long Name",
+        "Value": tournament["Long Name"],
+    }
     dfMeta.loc[len(dfMeta)] = {"Key": "Completed Script File", "Value": scriptfile}
     dfMeta.loc[len(dfMeta)] = {"Key": "Using Divisions", "Value": using_divisions}
-
-    ojsfile = (
-        dir_path
-        + "\\tournaments\\"
-        + tournament["Short Name"]
-        + "\\"
-        + tournament["D1_OJS"]
-    )
-    print(Fore.RESET)
-    add_table_dataframe(xlsx_path=ojsfile,sheet_name="Meta", table_name="Meta", data=dfMeta)
-
-
-def set_up_meta_worksheet_div(tournament: pd.Series):
-    for d in ["D1", "D2"]:
-        print(Fore.RESET)
-        print(f"Setting up meta worksheet for {tournament["Short Name"]} {d}")
-        print(tournament)
-        scriptfile = (
-            dir_path
-            + "\\tournaments\\"
-            + tournament["Short Name"]
-            + "\\closing_ceremony.html"
-        )
-        dfMeta = pd.DataFrame(columns=["Key", "Value"])
-        dfMeta.loc[len(dfMeta)] = {"Key": "Tournament Year", "Value": config["season_yr"]}
-        dfMeta.loc[len(dfMeta)] = {"Key": "FLL Season Title", "Value": config["season_name"]}
-        dfMeta.loc[len(dfMeta)] = {"Key": "Tournament Short Name", "Value": tournament["Short Name"]}
-        dfMeta.loc[len(dfMeta)] = {"Key": "Tournament Long Name", "Value": tournament["Long Name"]}
-        dfMeta.loc[len(dfMeta)] = {"Key": "Completed Script File", "Value": scriptfile}
-        dfMeta.loc[len(dfMeta)] = {"Key": "Using Divisions", "Value": using_divisions}
+    if using_divisions:
         dfMeta.loc[len(dfMeta)] = {"Key": "Division", "Value": d}
-        dfMeta.loc[len(dfMeta)] = {"Key": "Advancing", "Value": tournament["ADV"]}
+    dfMeta.loc[len(dfMeta)] = {"Key": "Advancing", "Value": tournament["ADV"]}
 
-        if tournament[d + "_OJS"] is not None:
-            ojsfile = (
-                dir_path
-                + "\\tournaments\\"
-                + tournament["Short Name"]
-                + "\\"
-                + tournament[d + "_OJS"]
-            )
-            print(Fore.RESET)
-            add_table_dataframe(xlsx_path=ojsfile,sheet_name="Meta", table_name="Meta", data=dfMeta)
+    # Add Meta into the open workbook supplied by the caller (book)
+    if tournament["OJS_FileName"] is not None:
+        add_table_dataframe(book, "Meta", "Meta", dfMeta)
 
 
 def copy_team_numbers(
-    source_sheet: Worksheet, target_sheet: Worksheet, target_start_row: int
-):
-    source_start_row = 3
+    source_sheet: Worksheet,
+    target_sheet: Worksheet,
+    target_start_row: int,
+    source_start_row: int = 3,
+    debug: bool = False,
+) -> int:
+    """
+    Copy team numbers from column A of source_sheet to column A of target_sheet.
+    - Copies from source_start_row .. last non-empty row (inclusive).
+    - Writes starting at target_start_row (increments for each copied row).
+    - Returns number of rows copied.
 
-    column = "A"
-    last_row = 0
-    print(Fore.RESET)
-    print(f"Copying team numbers to {target_sheet}")
-    # Iterate through the rows in the specified column
-    for row in range(1, source_sheet.max_row + 1):
-        if source_sheet[f"{column}{row}"].value is not None:
-            last_row = row
-    team_count = last_row - source_start_row + 1
-    col = 1  # Team number is always in column 1 ('A')
-    # itterate over the source rows. The dest row may not always align with
-    # the source row. Some sheets start on row 3, some start on 2
-    current_target_row = target_start_row
-    for row in range(source_start_row, source_start_row + team_count + 1):
-        cell_value = source_sheet.cell(row=row, column=col).value
-        target_sheet.cell(row=current_target_row, column=col).value = cell_value
-        current_target_row += 1
+    Set debug=True to print diagnostic info about what's read and written.
+    """
+    col = 1  # column A
+    max_row = source_sheet.max_row
 
-
-def protect_worksheets(tournament: pd.Series):
-    for d in ["D1", "D2"]:
-        if tournament[d + "_OJS"] is None:
-            print(Fore.RESET)
-            print(f'*-*-*-* No division {d} to check for {tournament["Short Name"]}')
-            continue
+    if debug:
         print(Fore.RESET)
-        print(f'Protecting {d} {tournament["Short Name"]}')
-        ojsfile = (
-            dir_path
-            + "\\tournaments\\"
-            + tournament["Short Name"]
-            + "\\"
-            + tournament[d + "_OJS"]
+        print(
+            f"copy_team_numbers: source_sheet={source_sheet.title}, target_sheet={target_sheet.title}"
         )
-        ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
-        for ws in ojs_book.worksheets:
-            # print(Fore.RESET)
-            # print(f"Protecting {ws}")
-            ws.protection.selectLockedCells = True
-            ws.protection.selectUnlockedCells = False
-            ws.protection.formatCells = False
-            ws.protection.formatColumns = False
-            ws.protection.formatRows = False
-            ws.protection.autoFilter = False
-            ws.protection.sort = False
-            ws.protection.set_password(SHEET_PASSWORD)
-            # ws.protection.sheet = True
-            ws.protection.enable()
-            print(f"{ws} is protected")
+        print(
+            f"max_row={max_row}, source_start_row={source_start_row}, target_start_row={target_start_row}"
+        )
 
-        ojs_book.save(ojsfile)
+    # Find the last non-empty row in column A
+    last_row = None
+    for r in range(source_start_row, max_row + 1):
+        v = source_sheet.cell(row=r, column=col).value
+        if debug:
+            print(f"read source row {r}: {repr(v)}")
+        if v is not None and v != "":
+            last_row = r
+
+    if last_row is None:
+        if debug:
+            print("copy_team_numbers: no non-empty rows found in source column A")
+        return 0
+
+    team_count = last_row - source_start_row + 1
+    if debug:
+        print(f"Detected last_row={last_row}, team_count={team_count}")
+
+    # Copy inclusive from source_start_row to last_row
+    dest_row = target_start_row
+    copied = 0
+    for r in range(source_start_row, last_row + 1):
+        cell_value = source_sheet.cell(row=r, column=col).value
+        if debug:
+            print(
+                f"writing to target row {dest_row}: {repr(cell_value)} (from source row {r})"
+            )
+        # normalize numpy / pandas numeric types to native Python types before writing
+        if pd.isna(cell_value):
+            write_val = None
+        elif isinstance(cell_value, (np.integer,)):
+            write_val = int(cell_value)
+        elif isinstance(cell_value, (np.floating,)):
+            fv = float(cell_value)
+            write_val = int(fv) if fv.is_integer() else fv
+        else:
+            write_val = cell_value
+
+        target_sheet.cell(row=dest_row, column=col).value = write_val
+        dest_row += 1
+        copied += 1
+
+    if debug:
+        print(f"copy_team_numbers: finished, copied={copied}")
+
+    return copied
 
 
-def resize_worksheets(tournament: pd.Series):
+def protect_worksheets(tournament: pd.Series, book: Workbook):
+    """Apply protection settings to every worksheet in `book`.
+
+    Uses the module-level `SHEET_PASSWORD`. The protection is conservative and
+    disables formatting and structural changes while allowing only selection of
+    locked cells.
+    """
+    for ws in book.worksheets:
+        ws.protection.selectLockedCells = True
+        ws.protection.selectUnlockedCells = False
+        ws.protection.formatCells = False
+        ws.protection.formatColumns = False
+        ws.protection.formatRows = False
+        ws.protection.autoFilter = False
+        ws.protection.sort = False
+        ws.protection.set_password(SHEET_PASSWORD)
+        ws.protection.enable()
+        # print which sheets protected
+        print(f"{ws} is protected")
+
+
+def resize_worksheets(tournament: pd.Series, book: Workbook):
+    """Resize the main result/input tables in the OJS workbook to match team count.
+
+    Copies team numbers into each sheet, extends table refs to the required
+    number of rows, and replicates formulas, styles, protections and
+    conditional formatting from the template row.
+    """
     worksheetNames = [
         "Robot Game Scores",
         "Innovation Project Input",
@@ -679,84 +859,144 @@ def resize_worksheets(tournament: pd.Series):
         "TournamentData",
     ]
     worksheet_start_row = [2, 2, 2, 2, 3]
-    for d in ["D1", "D2"]:
-        sheet_tables = zip(worksheetNames, worksheetTables, worksheet_start_row)
-        if tournament[d + "_OJS"] is None:
-            print(Fore.RESET)
-            print(f'*-*-*-* No division {d} to check for {tournament["Short Name"]}')
-            continue
-
-        print(Fore.RESET)
-        print(f'Resizing {d} {tournament["Short Name"]}')
-        ojsfile = (
-            dir_path
-            + "\\tournaments\\"
-            + tournament["Short Name"]
-            + "\\"
-            + tournament[d + "_OJS"]
-        )
-        ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
-        divassignees: pd.DataFrame = dfAssignments[
-            (dfAssignments["Tournament"] == tournament["Short Name"])
-            & (dfAssignments["Div"] == d)
+    div = tournament.get("Div", None)
+    # operate on a single open workbook corresponding to the requested division `div`
+    if using_divisions:
+        assignees: pd.DataFrame = dfAssignments[
+            (dfAssignments["Short Name"] == tournament["Short Name"])
+            & (dfAssignments["Div"] == div)
+        ]
+    else:
+        assignees: pd.DataFrame = dfAssignments[
+            (dfAssignments["Short Name"] == tournament["Short Name"])
         ]
 
-        # copy the team number data to each of the worksheets
-        for s, t, r in sheet_tables:
-            ws = ojs_book[s]
-            tapi_sheet = ojs_book["Team and Program Information"]
-            # first, copy the team numbers over
-            copy_team_numbers(
-                source_sheet=tapi_sheet, target_sheet=ws, target_start_row=r
+    # copy the team number data to each of the worksheets
+    sheet_tables = zip(worksheetNames, worksheetTables, worksheet_start_row)
+    copied_counts: dict[str, int] = {}
+    for s, t, r in sheet_tables:
+        if s in book.sheetnames:
+            ws = book[s]
+            tapi_sheet = book["Team and Program Information"]
+            # enable debug while testing to see what is read/written
+            copied = copy_team_numbers(
+                source_sheet=tapi_sheet,
+                target_sheet=ws,
+                target_start_row=r,
+                debug=False,
             )
+            copied_counts[s] = copied
+            print(f"copy_team_numbers wrote {copied} rows into sheet {s}")
 
-        # Resize the tables
-        sheet_tables = zip(worksheetNames, worksheetTables, worksheet_start_row)
-        for s, t, r in sheet_tables:
-            print(Fore.RESET)
-            print(f"{s}, {r}, {t}")
-            ws = ojs_book[s]
-            table: Table = ws.tables[t]
-            table_range: str = table.ref
-            start_cell = table_range.split(":")[0]
-            start_row = int(re.findall(r"\d", start_cell)[0])
-            colonPos = (table.ref).find(":")
-            # print(f'Resizing the {d} {t} table {table.ref}, {table.ref[:colonPos]}, {re.sub(r'\d', '', table.ref[colonPos + 1])}, {str(len(divassignees) + 2)}.')
-            table.ref = (
-                table.ref[:colonPos]
-                + ":"
-                + re.sub(r"\d", "", table.ref[colonPos + 1])
-                + str(start_row + len(divassignees))
-            )
-            # print(f'New table.ref = {table.ref}')
-            ws.delete_rows(idx=start_row + len(divassignees) + 1, amount=200)
-            # ws.protection.sheet = True
+    # Resize the tables
+    sheet_tables = zip(worksheetNames, worksheetTables, worksheet_start_row)
+    for s, t, r in sheet_tables:
+        if s not in book.sheetnames:
+            continue
+        ws = book[s]
+        table: Table = ws.tables[t]
+        table_range: str = table.ref
 
-        ojs_book.save(ojsfile)
+        # parse start/end cells robustly
+        start_cell, end_cell = table_range.split(":")
+        start_col_letter, start_row_num = coordinate_from_string(start_cell)
+        end_col_letter, end_row_num = coordinate_from_string(end_cell)
 
-def copy_award_def(tournament: pd.Series):
-    if using_divisions:
-        for d in ["D1", "D2"]:
-            ojsfile = (
-                dir_path
-                + "\\tournaments\\"
-                + tournament["Short Name"]
-                + "\\"
-                + tournament[d + "_OJS"]
-            )
-            add_table_dataframe(ojsfile, "AwardDef", "AwardDef", dfAwardDef)
-    else:
-        ojsfile = (
-            dir_path
-            + "\\tournaments\\"
-            + tournament["Short Name"]
-            + "\\"
-            + tournament["D1_OJS"]
+        # Prefer the actual copied row count for this sheet (fallback to assignees length)
+        rows_for_table = copied_counts.get(s, len(assignees))
+        # header is at start_row_num; data rows begin at start_row_num+1
+        new_end_row = start_row_num + rows_for_table
+
+        # set table.ref correctly using parsed columns
+        table.ref = f"{start_col_letter}{start_row_num}:{end_col_letter}{new_end_row}"
+        print(
+            f"Resized table {t}: new ref={table.ref}, start_row={start_row_num}, rows_for_table={rows_for_table}, assignees={len(assignees)}"
         )
-        add_table_dataframe(ojsfile, "AwardDef", "AwardDef", dfAwardDef)
+
+        # Copy formulas: detect any formula in the first data row and copy it down
+        first_data_row = start_row_num + 1
+        start_col_idx = column_index_from_string(start_col_letter)
+        end_col_idx = column_index_from_string(end_col_letter)
+        for col_idx in range(
+            start_col_idx + 1, end_col_idx + 1
+        ):  # skip team number column (A)
+            template = ws.cell(row=first_data_row, column=col_idx).value
+            if isinstance(template, str) and template.startswith("="):
+                for rr in range(first_data_row, new_end_row + 1):
+                    ws.cell(row=rr, column=col_idx).value = template
+
+        # Copy cell protection (locked/hidden) from the first data row down through each column
+        # This ensures formulas and other cells keep the same locked/hidden state as in the template row.
+        for col_idx in range(start_col_idx, end_col_idx + 1):
+            template_cell = ws.cell(row=first_data_row, column=col_idx)
+            tpl_prot = getattr(template_cell, "protection", None)
+            if tpl_prot is None:
+                continue
+            for rr in range(first_data_row, new_end_row + 1):
+                tgt = ws.cell(row=rr, column=col_idx)
+                try:
+                    # copy the Protection object to the target cell (shallow copy)
+                    tgt.protection = _copy(tpl_prot)
+                except Exception:
+                    # best-effort; don't abort resizing if protection copy fails
+                    pass
+
+        # Copy cell style (font, fill, number_format, alignment, border and internal _style)
+        # Use shallow copies to avoid sharing mutable style objects between cells.
+        for col_idx in range(start_col_idx, end_col_idx + 1):
+            template_cell = ws.cell(row=first_data_row, column=col_idx)
+            for rr in range(first_data_row, new_end_row + 1):
+                tgt = ws.cell(row=rr, column=col_idx)
+                try:
+                    # copy internal style and common style attributes
+                    if hasattr(template_cell, "_style"):
+                        tgt._style = _copy(template_cell._style)
+                    tgt.number_format = template_cell.number_format
+                    tgt.font = _copy(template_cell.font)
+                    tgt.fill = _copy(template_cell.fill)
+                    tgt.alignment = _copy(template_cell.alignment)
+                    tgt.border = _copy(template_cell.border)
+                except Exception:
+                    # best-effort: keep going if any individual copy fails
+                    pass
+
+        # Copy row height from template row to newly created rows (if a height is set)
+        try:
+            template_height = ws.row_dimensions[first_data_row].height
+            if template_height is not None:
+                for rr in range(first_data_row, new_end_row + 1):
+                    ws.row_dimensions[rr].height = template_height
+        except Exception:
+            pass
+
+        # remove any rows below the new end row to keep sheet tidy
+        # Before deleting extra rows, replicate data-validation and conditional-formatting
+        try:
+            _copy_data_validations_for_range(
+                ws, start_col_idx, end_col_idx, first_data_row, new_end_row
+            )
+        except Exception:
+            pass
+
+        try:
+            _extend_conditional_formatting_for_range(
+                ws, start_col_letter, end_col_letter, first_data_row, new_end_row
+            )
+        except Exception:
+            pass
+
+        ws.delete_rows(idx=new_end_row + 1, amount=200)
+        # ws.protection.sheet = True
+
+    # Do not save here; caller should save/close the workbook once after calling helpers.
 
 
-def add_conditional_formats(tournament: pd.Series):
+def copy_award_def(tournament: pd.Series, book: Workbook):
+    # Add AwardDef table to the open workbook `book`
+    add_table_dataframe(book, "AwardDef", "AwardDef", dfAwardDef)
+
+
+def add_conditional_formats(tournament: pd.Series, book: Workbook):
     # Create fill
     greenAwardFill = PatternFill(
         start_color="00B050", end_color="00B050", fill_type="solid"
@@ -773,94 +1013,68 @@ def add_conditional_formats(tournament: pd.Series):
     rgBronzeFill = PatternFill(
         start_color="AD8A56", end_color="AD8A56", fill_type="solid"
     )
-    for d in ["D1", "D2"]:
-        if tournament[d + "_OJS"] is None:
-            continue
-        print(Fore.RESET)
-        print(f'Adding conditional formats to {d} {tournament["Short Name"]}')
-        ojsfile = (
-            dir_path
-            + "\\tournaments\\"
-            + tournament["Short Name"]
-            + "\\"
-            + tournament[d + "_OJS"]
-        )
-        ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
-        ws = ojs_book["Results and Rankings"]
-        # Award
-        ws.conditional_formatting.add(
-            "O2",
-            FormulaRule(
-                formula=["COUNTA(AwardList!$A$2:$A$35)=COUNTA($O$3:$O$288)"],
-                stopIfTrue=False,
-                fill=greenAwardFill,
-            ),
-        )
-        # Advancing
-        ws.conditional_formatting.add(
-            "P2",
-            FormulaRule(
-                formula=['COUNTIF($P:$P,"Yes")=Meta!$B$13'],
-                stopIfTrue=False,
-                fill=greenAdvFill,
-            ),
-        )
-        # Robot Game Gold
-        ws.conditional_formatting.add(
-            "J1:J100",
-            FormulaRule(
-                formula=[
-                    'AND(J1=1,IF(VLOOKUP("Robot Game 1st Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 1st Place", TRUE, FALSE))'
-                ],
-                stopIfTrue=False,
-                fill=rgGoldFill,
-            ),
-        )
-        # Robot Game Silver
-        ws.conditional_formatting.add(
-            "J1:J100",
-            FormulaRule(
-                formula=[
-                    'AND(J1=2,IF(VLOOKUP("Robot Game 2nd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 2nd Place", TRUE, FALSE))'
-                ],
-                stopIfTrue=False,
-                fill=rgSilverFill,
-            ),
-        )
-        # Robot Game Bronze
-        ws.conditional_formatting.add(
-            "J1:J100",
-            FormulaRule(
-                formula=[
-                    'AND(J1=3,IF(VLOOKUP("Robot Game 3rd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 3rd Place", TRUE, FALSE))'
-                ],
-                stopIfTrue=False,
-                fill=rgBronzeFill,
-            ),
-        )
-        ojs_book.save(ojsfile)
+    # operate on the provided open workbook `book`
+    ws = book["Results and Rankings"]
+    # Award
+    ws.conditional_formatting.add(
+        "O2",
+        FormulaRule(
+            formula=["COUNTA(AwardList!$A$2:$A$35)=COUNTA($O$3:$O$288)"],
+            stopIfTrue=False,
+            fill=greenAwardFill,
+        ),
+    )
+    # Advancing
+    ws.conditional_formatting.add(
+        "P2",
+        FormulaRule(
+            formula=['COUNTIF($P:$P,"Yes")=Meta!$B$13'],
+            stopIfTrue=False,
+            fill=greenAdvFill,
+        ),
+    )
+    # Robot Game Gold
+    ws.conditional_formatting.add(
+        "J1:J100",
+        FormulaRule(
+            formula=[
+                'AND(J1=1,IF(VLOOKUP("Robot Game 1st Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 1st Place", TRUE, FALSE))'
+            ],
+            stopIfTrue=False,
+            fill=rgGoldFill,
+        ),
+    )
+    # Robot Game Silver
+    ws.conditional_formatting.add(
+        "J1:J100",
+        FormulaRule(
+            formula=[
+                'AND(J1=2,IF(VLOOKUP("Robot Game 2nd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 2nd Place", TRUE, FALSE))'
+            ],
+            stopIfTrue=False,
+            fill=rgSilverFill,
+        ),
+    )
+    # Robot Game Bronze
+    ws.conditional_formatting.add(
+        "J1:J100",
+        FormulaRule(
+            formula=[
+                'AND(J1=3,IF(VLOOKUP("Robot Game 3rd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 3rd Place", TRUE, FALSE))'
+            ],
+            stopIfTrue=False,
+            fill=rgBronzeFill,
+        ),
+    )
 
 
-def hide_worksheets(tournament: pd.Series):
+def hide_worksheets(tournament: pd.Series, book: Workbook):
     worksheetNames = ["Data Validation", "Meta", "AwardListDropdowns", "AwardDef"]
-    for d in ["D1", "D2"]:
-        if tournament[d + "_OJS"] is None:
-            continue
-        print(f'Hiding worksheets in {d} {tournament["Short Name"]}')
-        ojsfile = (
-            dir_path
-            + "\\tournaments\\"
-            + tournament["Short Name"]
-            + "\\"
-            + tournament[d + "_OJS"]
-        )
-        ojs_book = load_workbook(ojsfile, read_only=False, keep_vba=True)
-
-        for sheetname in worksheetNames:
-            ws = ojs_book[sheetname]
+    # operate on the provided open workbook `book`
+    for sheetname in worksheetNames:
+        if sheetname in book.sheetnames:
+            ws = book[sheetname]
             ws.sheet_state = "hidden"
-
-        ojs_book.save(ojsfile)
 
 
 # # # # # # # # # # # # # # # # # # # # #
@@ -883,16 +1097,16 @@ elif __file__:
 
 config = load_json_without_notes(dir_path + "\\" + "season.json")
 
-tournament_file: str = dir_path + "\\" + config['filename']
-template_file: str = dir_path + "\\" + config['tournament_template']
-extrafilelist: list[str] = config['copy_file_list']
+tournament_file: str = dir_path + "\\" + config["filename"]
+template_file: str = dir_path + "\\" + config["tournament_template"]
+extrafilelist: list[str] = config["copy_file_list"]
 
 # Make sure the extra files exist
 for filename in extrafilelist:
     try:
         if os.path.exists(dir_path + "\\" + filename):
-            print(Fore.GREEN +
-                f"{filename}... CHECK!",
+            print(
+                Fore.GREEN + f"{filename}... CHECK!",
             )
         else:
             print(Fore.RED)
@@ -907,37 +1121,47 @@ try:
     book = load_workbook(tournament_file, data_only=True)
     book.close()
 except Exception as e:
-    print_error(f"Could not open the tournament file: {tournament_file}. Check to make sure it is not open in Excel.", e)
+    print_error(
+        f"Could not open the tournament file: {tournament_file}. Check to make sure it is not open in Excel.",
+        e,
+    )
 
 try:
-    dictSeasonInfo: pd.DataFrame = read_table_as_dict(tournament_file, "SeasonInfo", "SeasonInfo")
+    dictSeasonInfo: pd.DataFrame = read_table_as_dict(
+        tournament_file, "SeasonInfo", "SeasonInfo"
+    )
     using_divisions: bool = dictSeasonInfo["Divisions"]
 except Exception as e:
     print_error(f"Could not read the SeasonInfo table.", e)
 
 try:
-    dfTournaments = read_table_as_df(tournament_file, "Tournaments", "TournamentList")
+    if using_divisions:
+        dfTournaments = read_table_as_df(
+            tournament_file, "DivTournaments", "DivTournamentList"
+        ).fillna(0)
+    else:
+        dfTournaments = read_table_as_df(
+            tournament_file, "Tournaments", "TournamentList"
+        ).fillna(0)
 except Exception as e:
     print_error(f"Could not read the tournament worksheet.", e)
 
 try:
-    dfDivAwards = read_table_as_df(tournament_file, "DivAwards", "AwardListDiv")
-except Exception as e:
-    print_error(f"Could not read the divAwards worksheet.", e)
-
-try:
-    dfAwardDef = read_table_as_df(tournament_file, "AwardDef", "AwardDef")
+    dfAwardDef = read_table_as_df(tournament_file, "AwardDef", "AwardDef").fillna(0)
 except Exception as e:
     print_error(f"Could not read the AwardDef worksheet.", e)
 
 try:
-    dfAssignments = read_table_as_df(tournament_file, "Assignments", "Assignments")
+    dfAssignments = read_table_as_df(
+        tournament_file, "Assignments", "Assignments"
+    ).fillna(0)
     tourn_array: list[str] = []
     for index, row in dfTournaments.iterrows():
         tourn_array.append(row["Short Name"])
+    print("Assignments")
+    print(dfAssignments)
 except Exception as e:
     print_error(f"Could not read the assignments worksheet.", e)
-
 
 
 # Are we building all of the tournaments, or just one?
@@ -952,30 +1176,33 @@ if tourn != "":
         )
         sys.exit(1)
 
+print(dfTournaments)
+
 # Now that we have all of the info for the tournaments, loop through and
 # start building the OJS files and folders
-if using_divisions:
-    for index, row in dfDivAwards.iterrows():
-        pass
-
 for index, row in dfTournaments.iterrows():
     newpath = dir_path + "\\tournaments\\" + row["Short Name"]
     create_folder(newpath)
+    print("Copying files")
     copy_files(row)
-    set_up_tapi_worksheet(row.fillna(0))
-    if using_divisions:
-        set_up_award_worksheet_div(row.fillna(0))
-        set_up_meta_worksheet_div(row.fillna(0)) #TODO
-    else:
-        set_up_meta_worksheet(row.fillna(0)) #TODO
-    set_up_award_worksheet(row.fillna(0))
-    add_conditional_formats(row)
-    copy_award_def(row.fillna(0))
-    hide_worksheets(row)
-    resize_worksheets(row)
-    protect_worksheets(row)
 
-
-print(Fore.GREEN)
-input(f"All done. Created OJS workbooks for {len(dfTournaments)} tournament(s). Press enter to quit...")
-sys.exit(1)
+    # For divisions, there may be separate OJS files for each division (D1/D2).
+    ojs_name = row.get("OJS_FileName")
+    if ojs_name is None or (isinstance(ojs_name, float) and pd.isna(ojs_name)):
+        print(f"Did not see {ojs_name}")
+        continue
+    ojs_path = dir_path + "\\tournaments\\" + row["Short Name"] + "\\" + ojs_name
+    print(ojs_path)
+    ojs_book = load_workbook(ojs_path, read_only=False, keep_vba=True)
+    try:
+        set_up_tapi_worksheet(row, ojs_book)
+        set_up_award_worksheet(row, ojs_book)
+        set_up_meta_worksheet(row, ojs_book)
+        add_conditional_formats(row, ojs_book)
+        copy_award_def(row, ojs_book)
+        hide_worksheets(row, ojs_book)
+        resize_worksheets(row, ojs_book)
+        protect_worksheets(row, ojs_book)
+    finally:
+        ojs_book.save(ojs_path)
+        ojs_book.close()
