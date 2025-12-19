@@ -244,8 +244,351 @@ def copy_team_numbers(
     return copied
 
 
-# Copy formatting helpers and other worksheet functions here...
-# (I'll include the critical ones - let me know if you want all of them)
+def _copy_data_validations_for_range(
+    ws: Worksheet,
+    start_col_idx: int,
+    end_col_idx: int,
+    first_data_row: int,
+    new_end_row: int,
+):
+    """Duplicate data validations from template row to new range.
+    
+    Args:
+        ws: Worksheet to modify
+        start_col_idx: Starting column index
+        end_col_idx: Ending column index
+        first_data_row: Template data row number
+        new_end_row: New ending row number
+    """
+    try:
+        existing = list(ws.data_validations.dataValidation)
+    except Exception:
+        existing = []
+
+    for dv in existing:
+        try:
+            for rng in dv.ranges:
+                try:
+                    cr = CellRange(str(rng))
+                except Exception:
+                    continue
+
+                if not (cr.min_row <= first_data_row <= cr.max_row):
+                    continue
+
+                orig_min_col = cr.min_col
+                orig_max_col = cr.max_col
+                new_min_col = max(orig_min_col, start_col_idx)
+                new_max_col = min(orig_max_col, end_col_idx)
+
+                if new_min_col > new_max_col:
+                    continue
+
+                new_range = f"{get_column_letter(new_min_col)}{first_data_row}:{get_column_letter(new_max_col)}{new_end_row}"
+
+                newdv = DataValidation(
+                    type=dv.type,
+                    formula1=getattr(dv, "formula1", None),
+                    formula2=getattr(dv, "formula2", None),
+                    allow_blank=getattr(dv, "allow_blank", None),
+                    operator=getattr(dv, "operator", None),
+                    showDropDown=getattr(dv, "showDropDown", None),
+                    error=getattr(dv, "error", None),
+                    errorTitle=getattr(dv, "errorTitle", None),
+                    prompt=getattr(dv, "prompt", None),
+                    promptTitle=getattr(dv, "promptTitle", None),
+                )
+
+                try:
+                    newdv.add(new_range)
+                    ws.add_data_validation(newdv)
+                except Exception:
+                    continue
+        except Exception:
+            continue
+
+
+def _extend_conditional_formatting_for_range(
+    ws: Worksheet,
+    start_col_letter: str,
+    end_col_letter: str,
+    first_data_row: int,
+    new_end_row: int,
+):
+    """Duplicate conditional formatting rules to new range.
+    
+    Args:
+        ws: Worksheet to modify
+        start_col_letter: Starting column letter
+        end_col_letter: Ending column letter
+        first_data_row: Template data row number
+        new_end_row: New ending row number
+    """
+    try:
+        cf_rules = getattr(ws.conditional_formatting, "_cf_rules", {})
+    except Exception:
+        cf_rules = {}
+
+    new_range = f"{start_col_letter}{first_data_row}:{end_col_letter}{new_end_row}"
+
+    for key, rules in list(cf_rules.items()):
+        try:
+            for sub in str(key).split():
+                try:
+                    cr = CellRange(sub)
+                except Exception:
+                    continue
+                if cr.min_row <= first_data_row <= cr.max_row:
+                    for rule in rules:
+                        try:
+                            ws.conditional_formatting.add(new_range, rule)
+                        except Exception:
+                            continue
+        except Exception:
+            continue
+
+
+def resize_worksheets(
+    tournament: pd.Series,
+    book: Workbook,
+    dfAssignments: pd.DataFrame,
+    using_divisions: bool
+) -> None:
+    """Resize the main result/input tables to match team count.
+
+    Args:
+        tournament: A pandas Series representing the tournament row
+        book: An open openpyxl Workbook object
+        dfAssignments: DataFrame containing team assignments
+        using_divisions: Boolean indicating if divisions are used
+    """
+    logger.info(f"Resizing worksheets for {tournament[COL_OJS_FILENAME]}")
+    
+    worksheetNames = [
+        SHEET_ROBOT_GAME,
+        SHEET_INNOVATION,
+        SHEET_ROBOT_DESIGN,
+        SHEET_CORE_VALUES,
+        SHEET_RESULTS,
+    ]
+    worksheetTables = [
+        TABLE_ROBOT_GAME,
+        TABLE_INNOVATION,
+        TABLE_ROBOT_DESIGN,
+        TABLE_CORE_VALUES,
+        TABLE_TOURNAMENT_DATA,
+    ]
+    worksheet_start_row = [2, 2, 2, 2, 3]
+    
+    div = tournament.get(COL_DIVISION, None)
+    
+    if using_divisions:
+        assignees: pd.DataFrame = dfAssignments[
+            (dfAssignments[COL_SHORT_NAME] == tournament[COL_SHORT_NAME])
+            & (dfAssignments[COL_DIVISION] == div)
+        ]
+    else:
+        assignees: pd.DataFrame = dfAssignments[
+            (dfAssignments[COL_SHORT_NAME] == tournament[COL_SHORT_NAME])
+        ]
+
+    # Copy team numbers to each worksheet
+    sheet_tables = zip(worksheetNames, worksheetTables, worksheet_start_row)
+    copied_counts: dict[str, int] = {}
+    for s, t, r in sheet_tables:
+        if s in book.sheetnames:
+            ws = book[s]
+            tapi_sheet = book[SHEET_TEAM_INFO]
+            copied = copy_team_numbers(
+                source_sheet=tapi_sheet,
+                target_sheet=ws,
+                target_start_row=r,
+                debug=False,
+            )
+            copied_counts[s] = copied
+
+    # Resize the tables
+    sheet_tables = zip(worksheetNames, worksheetTables, worksheet_start_row)
+    for s, t, r in sheet_tables:
+        if s not in book.sheetnames:
+            continue
+        ws = book[s]
+        table: Table = ws.tables[t]
+        table_range: str = table.ref
+
+        start_cell, end_cell = table_range.split(":")
+        start_col_letter, start_row_num = coordinate_from_string(start_cell)
+        end_col_letter, end_row_num = coordinate_from_string(end_cell)
+
+        rows_for_table = copied_counts.get(s, len(assignees))
+        new_end_row = start_row_num + rows_for_table
+
+        table.ref = f"{start_col_letter}{start_row_num}:{end_col_letter}{new_end_row}"
+        logger.debug(f"Resized table {t}: {table.ref}")
+
+        # Copy formulas
+        first_data_row = start_row_num + 1
+        start_col_idx = column_index_from_string(start_col_letter)
+        end_col_idx = column_index_from_string(end_col_letter)
+        
+        for col_idx in range(start_col_idx + 1, end_col_idx + 1):
+            template = ws.cell(row=first_data_row, column=col_idx).value
+            if isinstance(template, str) and template.startswith("="):
+                for rr in range(first_data_row, new_end_row + 1):
+                    ws.cell(row=rr, column=col_idx).value = template
+
+        # Copy cell protection
+        for col_idx in range(start_col_idx, end_col_idx + 1):
+            template_cell = ws.cell(row=first_data_row, column=col_idx)
+            tpl_prot = getattr(template_cell, "protection", None)
+            if tpl_prot is None:
+                continue
+            for rr in range(first_data_row, new_end_row + 1):
+                tgt = ws.cell(row=rr, column=col_idx)
+                try:
+                    tgt.protection = _copy(tpl_prot)
+                except Exception:
+                    pass
+
+        # Copy cell styles
+        for col_idx in range(start_col_idx, end_col_idx + 1):
+            template_cell = ws.cell(row=first_data_row, column=col_idx)
+            for rr in range(first_data_row, new_end_row + 1):
+                tgt = ws.cell(row=rr, column=col_idx)
+                try:
+                    if hasattr(template_cell, "_style"):
+                        tgt._style = _copy(template_cell._style)
+                    tgt.number_format = template_cell.number_format
+                    tgt.font = _copy(template_cell.font)
+                    tgt.fill = _copy(template_cell.fill)
+                    tgt.alignment = _copy(template_cell.alignment)
+                    tgt.border = _copy(template_cell.border)
+                except Exception:
+                    pass
+
+        # Copy row height
+        try:
+            template_height = ws.row_dimensions[first_data_row].height
+            if template_height is not None:
+                for rr in range(first_data_row, new_end_row + 1):
+                    ws.row_dimensions[rr].height = template_height
+        except Exception:
+            pass
+
+        # Copy data validations and conditional formatting
+        try:
+            _copy_data_validations_for_range(
+                ws, start_col_idx, end_col_idx, first_data_row, new_end_row
+            )
+        except Exception:
+            pass
+
+        try:
+            _extend_conditional_formatting_for_range(
+                ws, start_col_letter, end_col_letter, first_data_row, new_end_row
+            )
+        except Exception:
+            pass
+
+        # Delete extra rows
+        ws.delete_rows(idx=new_end_row + 1, amount=200)
+
+    logger.debug("Worksheet resizing complete")
+
+
+def copy_award_def(tournament: pd.Series, book: Workbook, dfAwardDef: pd.DataFrame) -> None:
+    """Add the award definitions table to the workbook.
+    
+    Args:
+        tournament: A pandas Series representing the tournament row
+        book: An open openpyxl Workbook object
+        dfAwardDef: DataFrame containing award definitions
+    """
+    logger.debug("Adding award definitions table")
+    add_table_dataframe(book, SHEET_AWARD_DEF, TABLE_AWARD_DEF, dfAwardDef)
+
+
+def add_conditional_formats(tournament: pd.Series, book: Workbook) -> None:
+    """Add conditional formatting rules to the Results and Rankings worksheet.
+    
+    Args:
+        tournament: A pandas Series representing the tournament row
+        book: An open openpyxl Workbook object
+    """
+    logger.info(f"Adding conditional formats for {tournament[COL_OJS_FILENAME]}")
+    
+    greenAwardFill = PatternFill(
+        start_color="00B050", end_color="00B050", fill_type="solid"
+    )
+    greenAdvFill = PatternFill(
+        start_color="00FF00", end_color="00FF00", fill_type="solid"
+    )
+    rgGoldFill = PatternFill(
+        start_color="C9B037", end_color="C9B037", fill_type="solid"
+    )
+    rgSilverFill = PatternFill(
+        start_color="D7D7D7", end_color="D7D7D7", fill_type="solid"
+    )
+    rgBronzeFill = PatternFill(
+        start_color="AD8A56", end_color="AD8A56", fill_type="solid"
+    )
+    
+    ws = book[SHEET_RESULTS]
+    
+    # Award completion
+    ws.conditional_formatting.add(
+        "O2",
+        FormulaRule(
+            formula=["COUNTA(AwardList!$A$2:$A$35)=COUNTA($O$3:$O$288)"],
+            stopIfTrue=False,
+            fill=greenAwardFill,
+        ),
+    )
+    
+    # Advancing count
+    ws.conditional_formatting.add(
+        "P2",
+        FormulaRule(
+            formula=['COUNTIF($P:$P,"Yes")=Meta!$B$13'],
+            stopIfTrue=False,
+            fill=greenAdvFill,
+        ),
+    )
+    
+    # Robot Game medals
+    ws.conditional_formatting.add(
+        "J1:J100",
+        FormulaRule(
+            formula=[
+                'AND(J1=1,IF(VLOOKUP("Robot Game 1st Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 1st Place", TRUE, FALSE))'
+            ],
+            stopIfTrue=False,
+            fill=rgGoldFill,
+        ),
+    )
+    ws.conditional_formatting.add(
+        "J1:J100",
+        FormulaRule(
+            formula=[
+                'AND(J1=2,IF(VLOOKUP("Robot Game 2nd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 2nd Place", TRUE, FALSE))'
+            ],
+            stopIfTrue=False,
+            fill=rgSilverFill,
+        ),
+    )
+    ws.conditional_formatting.add(
+        "J1:J100",
+        FormulaRule(
+            formula=[
+                'AND(J1=3,IF(VLOOKUP("Robot Game 3rd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 3rd Place", TRUE, FALSE))'
+            ],
+            stopIfTrue=False,
+            fill=rgBronzeFill,
+        ),
+    )
+    
+    logger.debug("Conditional formatting applied")
+
 
 def protect_worksheets(tournament: pd.Series, book: Workbook) -> None:
     """Apply protection settings to every worksheet.

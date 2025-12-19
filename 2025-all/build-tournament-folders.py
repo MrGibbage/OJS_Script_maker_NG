@@ -11,6 +11,7 @@ import sys
 import warnings
 from openpyxl import load_workbook
 from colorama import init
+import pandas as pd
 
 # Import from modules
 from modules.logger import setup_logger, print_error
@@ -21,6 +22,9 @@ from modules.worksheet_setup import (
     set_up_tapi_worksheet,
     set_up_award_worksheet,
     set_up_meta_worksheet,
+    resize_worksheets,
+    add_conditional_formats,
+    copy_award_def,
     protect_worksheets,
     hide_worksheets,
 )
@@ -169,12 +173,8 @@ def main():
             set_up_tapi_worksheet(row, ojs_book, dfAssignments, using_divisions)
             set_up_award_worksheet(row, ojs_book, dfAwardDef, using_divisions)
             set_up_meta_worksheet(row, ojs_book, config, dir_path, using_divisions)
-            
-            # Import remaining functions that weren't moved yet
-            from modules.worksheet_setup import resize_worksheets, add_conditional_formats, copy_award_def
-            
             add_conditional_formats(row, ojs_book)
-            copy_award_def(row, ojs_book)
+            copy_award_def(row, ojs_book, dfAwardDef)
             hide_worksheets(row, ojs_book)
             resize_worksheets(row, ojs_book, dfAssignments, using_divisions)
             protect_worksheets(row, ojs_book)
