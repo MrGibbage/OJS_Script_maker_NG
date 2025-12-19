@@ -905,7 +905,7 @@ def resize_worksheets(tournament: pd.Series, book: Workbook):
                 debug=False,
             )
             copied_counts[s] = copied
-            print(f"copy_team_numbers wrote {copied} rows into sheet {s}")
+            # print(f"copy_team_numbers wrote {copied} rows into sheet {s}")
 
     # Resize the tables
     sheet_tables = zip(worksheetNames, worksheetTables, worksheet_start_row)
@@ -928,9 +928,9 @@ def resize_worksheets(tournament: pd.Series, book: Workbook):
 
         # set table.ref correctly using parsed columns
         table.ref = f"{start_col_letter}{start_row_num}:{end_col_letter}{new_end_row}"
-        print(
-            f"Resized table {t}: new ref={table.ref}, start_row={start_row_num}, rows_for_table={rows_for_table}, assignees={len(assignees)}"
-        )
+        # print(
+        #     f"Resized table {t}: new ref={table.ref}, start_row={start_row_num}, rows_for_table={rows_for_table}, assignees={len(assignees)}"
+        # )
 
         # Copy formulas: detect any formula in the first data row and copy it down
         first_data_row = start_row_num + 1
@@ -1200,6 +1200,9 @@ print(dfTournaments)
 # Now that we have all of the info for the tournaments, loop through and
 # start building the OJS files and folders
 for index, row in dfTournaments.iterrows():
+    print("* * * * * * * * * * * * * * * * * * * * * *")
+    print(str(str(row["Short Name"]) + " " + str(row.get("Div", ""))).center(43))
+    print("* * * * * * * * * * * * * * * * * * * * * *")
     newpath = dir_path + "\\tournaments\\" + row["Short Name"]
     create_folder(newpath)
     print("Copying files")
