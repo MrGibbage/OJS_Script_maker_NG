@@ -318,16 +318,20 @@ def add_table_dataframe(
 
 
 def read_table_as_df(
-    xlsx_path: str, sheet_name: str, table_name: str, require_table: bool = True
+    xlsx_path: str,
+    sheet_name: str,
+    table_name: str,
+    require_table: bool = True,
+    convert_integer_floats: bool = True,
 ) -> pd.DataFrame:
     """
     Read an Excel table (ListObject) by name into a pandas DataFrame.
 
-    Safer behaviour:
-    - Catches workbook / sheet / table access errors and re-raises with context.
-    - Validates the table.ref format.
-    - Handles empty tables (returns empty DataFrame when require_table==False).
-    - Cleans column names and trims string values using vectorized operations.
+    Same behaviour as before, with an optional post-processing step:
+    - If convert_integer_floats is True (default), any float column where all
+      non-missing values are whole numbers (e.g. 1.0, 2.0) will be converted
+      to the pandas nullable integer dtype "Int64" so integers are preserved
+      while keeping NA support.
     """
     try:
         wb = load_workbook(xlsx_path, data_only=True)
@@ -409,6 +413,25 @@ def read_table_as_df(
         return s
 
     df = df.apply(_trim_series)
+
+    # NEW: convert float columns that are integer-like into pandas nullable Int64 dtype
+    if convert_integer_floats:
+        float_cols = df.select_dtypes(include=["float"]).columns
+        for col in float_cols:
+            ser = df[col]
+            non_na = ser.dropna()
+            if non_na.empty:
+                # nothing to convert (all NA) -> skip conversion to avoid choosing int dtype when ambiguous
+                continue
+            # vectorized check: are all non-NA values whole numbers?
+            try:
+                # use modulo 1 check; for numerical stability cast to float
+                if ((non_na % 1) == 0).all():
+                    # convert to pandas nullable integer dtype to preserve NA
+                    df[col] = df[col].astype("Int64")
+            except Exception:
+                # best-effort: if any operation fails, skip conversion for this column
+                continue
 
     return df
 
@@ -613,15 +636,11 @@ def set_up_tapi_worksheet(tournament: pd.Series, book: Workbook):
             f'There are {len(assignees)} teams in this {tournament["Short Name"]} tournament'
         )
 
-    print(f"almost done creating the tapi dataframe. {assignees}")
-
     # format the assignees df so it matches the TAPI list
     keep = ["Team #", "Team Name", "Coach Name"]
     keep_safe = [c for c in keep if c in assignees.columns]
     assignees = assignees[keep_safe]
     assignees["Pod Number"] = 0
-    print(f"adding the tapi dataframe.")
-    print(f"{assignees}")
     add_table_dataframe(
         book,
         "Team and Program Information",
