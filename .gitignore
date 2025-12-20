@@ -10,3 +10,36 @@
 *.xlsx
 !/2025/sample/
 !/2025/sample/**
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tournament output
+2025-all/tournaments/
+**/tournaments/
+
+# Temporary files
+*.tmp
+~$*.xlsx
+~$*.xlsm
