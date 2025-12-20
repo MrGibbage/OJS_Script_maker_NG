@@ -4,11 +4,17 @@ This script reads a season manifest (`season.json`) and a master
 `TournamentList` (or `DivTournamentList`) workbook to create a folder for
 each tournament, copy template files, and populate the OJS (Online Judge
 System) spreadsheet tables with team/award/meta information.
+
+Usage:
+    python build-tournament-folders.py              # Interactive mode (default)
+    python build-tournament-folders.py --quiet       # Minimal output, no confirmations
+    python build-tournament-folders.py --verbose     # Maximum output with debug logging
 """
 
 import os
 import sys
 import warnings
+import argparse
 from openpyxl import load_workbook
 from colorama import init, Fore, Style
 import pandas as pd
@@ -45,10 +51,52 @@ warnings.simplefilter(action="ignore", category=UserWarning)
 # Initialize colorama
 init()
 
-# Set up logger
-logger = setup_logger("ojs_builder", debug=False)
+def parse_arguments():
+    """Parse command-line arguments.
+    
+    Returns:
+        Namespace with parsed arguments
+    """
+    parser = argparse.ArgumentParser(
+        description="Build tournament folders and populate OJS spreadsheets",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=""":
+Examples:
+  %(prog)s                    Run in quiet mode (default)
+  %(prog)s --interactive      Run with prompts and validation summary
+  %(prog)s --verbose          Run with debug logging enabled
+  %(prog)s --tournament ABC   Build only tournament with short name 'ABC'
+        """
+    )
+    
+    parser.add_argument(
+        '--interactive', '-i',
+        action='store_true',
+        help='Interactive mode: show prompts, validation summary, and confirmations'
+    )
+    
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Verbose mode: enable debug logging and detailed output'
+    )
+    
+    parser.add_argument(
+        '--tournament', '-t',
+        type=str,
+        metavar='NAME',
+        help='Process only the specified tournament (by short name)'
+    )
+    
+    parser.add_argument(
+        '--skip-validation',
+        action='store_true',
+        help='Skip pre-flight validation checks (not recommended)'
+    )
+    
+    return parser.parse_args()
 
-def validate_environment(dir_path: str, config: dict, tournament_file: str, template_file: str, extrafilelist: list) -> ValidationSummary:
+def validate_environment(dir_path: str, config: dict, tournament_file: str, template_file: str, extrafilelist: list, quiet: bool = False) -> ValidationSummary:
     """Validate the environment before processing.
     
     Args:
@@ -57,6 +105,7 @@ def validate_environment(dir_path: str, config: dict, tournament_file: str, temp
         tournament_file: Path to tournament file
         template_file: Path to template file
         extrafilelist: List of extra files to copy
+        quiet: If True, suppress info messages
         
     Returns:
         ValidationSummary with results
@@ -68,19 +117,19 @@ def validate_environment(dir_path: str, config: dict, tournament_file: str, temp
     missing = [k for k in required_config_keys if k not in config]
     if missing:
         summary.add_error(f"Missing config keys: {', '.join(missing)}")
-    else:
+    elif not quiet:
         summary.add_info(f"Configuration valid: {config.get('season_name')} {config.get('season_yr')}")
     
     # Check tournament file
     if not os.path.exists(tournament_file):
         summary.add_error(f"Tournament file not found: {tournament_file}")
-    else:
+    elif not quiet:
         summary.add_info(f"Tournament file found: {os.path.basename(tournament_file)}")
     
     # Check template file
     if not os.path.exists(template_file):
         summary.add_error(f"Template file not found: {template_file}")
-    else:
+    elif not quiet:
         summary.add_info(f"Template file found: {os.path.basename(template_file)}")
     
     # Check extra files
@@ -91,7 +140,7 @@ def validate_environment(dir_path: str, config: dict, tournament_file: str, temp
     
     if missing_files:
         summary.add_warning(f"Missing optional files: {', '.join(missing_files)}")
-    else:
+    elif not quiet:
         summary.add_info(f"All {len(extrafilelist)} extra files found")
     
     return summary
@@ -99,19 +148,32 @@ def validate_environment(dir_path: str, config: dict, tournament_file: str, temp
 
 def main():
     """Main execution function."""
+    args = parse_arguments()
+    
+    # Quiet mode is default; interactive is opt-in
+    quiet = not args.interactive
+    
+    # Set up logger with appropriate verbosity
+    global logger
+    logger = setup_logger("ojs_builder", debug=args.verbose)
+    
     # Determine script directory
     if getattr(sys, "frozen", False):
         dir_path = os.path.dirname(sys.executable)
     elif __file__:
         dir_path = os.path.dirname(__file__)
     
-    print_section_header("OJS TOURNAMENT FOLDER BUILDER")
-    print_info(f"Working directory: {dir_path}")
+    if not quiet:
+        print_section_header("OJS TOURNAMENT FOLDER BUILDER")
+        print_info(f"Working directory: {dir_path}")
+    else:
+        logger.info("Starting tournament folder builder")
     
     # Load configuration
     try:
         config = load_json_without_notes(os.path.join(dir_path, CONFIG_FILENAME))
-        print_success("Configuration loaded")
+        if not quiet:
+            print_success("Configuration loaded")
     except FileNotFoundError:
         print_error(
             logger,
@@ -134,29 +196,38 @@ def main():
     template_file = os.path.join(dir_path, config["tournament_template"])
     extrafilelist = config["copy_file_list"]
 
-    # Run validation
-    print_section_header("PRE-FLIGHT VALIDATION")
-    validation = validate_environment(dir_path, config, tournament_file, template_file, extrafilelist)
-    validation.display()
-    
-    if validation.has_errors():
-        print_error(
-            logger,
-            "Validation failed. Please fix the errors above and try again.",
-            error_type='invalid_data',
-            context={'location': 'pre-flight validation'}
-        )
-    
-    if validation.warnings and not confirm_action("⚠ There are warnings. Continue anyway?", default=True):
-        logger.info("User cancelled due to warnings")
-        sys.exit(0)
+    # Run validation (unless skipped)
+    if not args.skip_validation:
+        if not quiet:
+            print_section_header("PRE-FLIGHT VALIDATION")
+        
+        validation = validate_environment(dir_path, config, tournament_file, template_file, extrafilelist, quiet=quiet)
+        
+        if not quiet:
+            validation.display()
+        
+        if validation.has_errors():
+            print_error(
+                logger,
+                "Validation failed. Please fix the errors above and try again.",
+                error_type='invalid_data',
+                context={'location': 'pre-flight validation'}
+            )
+        
+        if not quiet and validation.warnings:
+            if not confirm_action("⚠ There are warnings. Continue anyway?", default=True):
+                logger.info("User cancelled due to warnings")
+                sys.exit(0)
 
     # Load tournament data
-    print_section_header("LOADING TOURNAMENT DATA")
+    if not quiet:
+        print_section_header("LOADING TOURNAMENT DATA")
+    
     try:
         logger.info(f"Opening {os.path.basename(tournament_file)}...")
         _ = load_workbook(tournament_file, data_only=True)
-        print_success("Tournament file opened successfully")
+        if not quiet:
+            print_success("Tournament file opened successfully")
     except Exception as e:
         print_error(
             logger,
@@ -199,7 +270,8 @@ def main():
     try:
         dfAssignments = read_table_as_df(tournament_file, "Assignments", "Assignments").fillna(0)
         tourn_array = dfTournaments[COL_SHORT_NAME].tolist()
-        print_success(f"Loaded {len(dfAssignments)} team assignments")
+        if not quiet:
+            print_success(f"Loaded {len(dfAssignments)} team assignments")
     except Exception as e:
         print_error(
             logger,
@@ -214,18 +286,14 @@ def main():
         )
 
     # Tournament selection
-    print_section_header("TOURNAMENT SELECTION")
-    if len(tourn_array) > 1:
-        print_info(f"Available tournaments: {', '.join(tourn_array)}")
-        tourn = input(f"\n{Fore.CYAN}Enter tournament short name, or press ENTER for all: {Style.RESET_ALL}").strip()
-    else:
-        tourn = ""
-        print_info(f"Single tournament detected: {tourn_array[0]}")
-    
-    if tourn != "":
+    if args.tournament:
+        # Use tournament from command line
+        tourn = args.tournament
         if tourn in tourn_array:
             dfTournaments = dfTournaments.loc[dfTournaments[COL_SHORT_NAME] == tourn]
-            print_success(f"Building single tournament: {tourn}")
+            logger.info(f"Building single tournament from --tournament arg: {tourn}")
+            if not quiet:
+                print_success(f"Building single tournament: {tourn}")
         else:
             print_error(
                 logger,
@@ -237,40 +305,76 @@ def main():
                     'found': tourn
                 }
             )
+    else:
+        # Interactive selection (unless quiet)
+        if not quiet:
+            print_section_header("TOURNAMENT SELECTION")
+            if len(tourn_array) > 1:
+                print_info(f"Available tournaments: {', '.join(tourn_array)}")
+                tourn = input(f"\n{Fore.CYAN}Enter tournament short name, or press ENTER for all: {Style.RESET_ALL}").strip()
+            else:
+                tourn = ""
+                print_info(f"Single tournament detected: {tourn_array[0]}")
+            
+            if tourn != "":
+                if tourn in tourn_array:
+                    dfTournaments = dfTournaments.loc[dfTournaments[COL_SHORT_NAME] == tourn]
+                    print_success(f"Building single tournament: {tourn}")
+                else:
+                    print_error(
+                        logger,
+                        f"Tournament '{tourn}' not found",
+                        error_type='invalid_data',
+                        context={
+                            'location': 'tournament selection',
+                            'expected': f"One of: {', '.join(tourn_array)}",
+                            'found': tourn
+                        }
+                    )
 
-    # Confirm before processing
-    print_section_header("READY TO PROCESS")
-    print_info(f"Tournaments to process: {len(dfTournaments)}")
-    if not confirm_action("Proceed with tournament folder creation?", default=True):
-        logger.info("User cancelled operation")
-        print_warning("Operation cancelled by user")
-        sys.exit(0)
+    # Confirm before processing (unless quiet)
+    if not quiet:
+        print_section_header("READY TO PROCESS")
+        print_info(f"Tournaments to process: {len(dfTournaments)}")
+        if not confirm_action("Proceed with tournament folder creation?", default=True):
+            logger.info("User cancelled operation")
+            print_warning("Operation cancelled by user")
+            sys.exit(0)
 
-    # Process tournaments with progress tracking
-    print_section_header("PROCESSING TOURNAMENTS")
+    # Process tournaments
+    if not quiet:
+        print_section_header("PROCESSING TOURNAMENTS")
+    else:
+        logger.info(f"Processing {len(dfTournaments)} tournament(s)...")
     
     for index, row in dfTournaments.iterrows():
         tournament_name = f"{row[COL_SHORT_NAME]} {row.get(COL_DIVISION, '')}".strip()
         
-        print(f"\n{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}  {tournament_name}  {Style.RESET_ALL}".center(70))
-        print(f"{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}\n")
-        
-        progress = ProgressTracker(8, f"Setting up {row[COL_SHORT_NAME]}")
+        if not quiet:
+            print(f"\n{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}  {tournament_name}  {Style.RESET_ALL}".center(70))
+            print(f"{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}\n")
+            progress = ProgressTracker(8, f"Setting up {row[COL_SHORT_NAME]}")
+        else:
+            logger.info(f"Processing {tournament_name}")
         
         # Create folder
         newpath = os.path.join(dir_path, FOLDER_TOURNAMENTS, row[COL_SHORT_NAME])
         create_folder(newpath)
-        progress.update("Folder created")
+        if not quiet:
+            progress.update("Folder created")
         
         # Copy files
         copy_files(row, dir_path, template_file, extrafilelist)
-        progress.update("Files copied")
+        if not quiet:
+            progress.update("Files copied")
 
         # Process OJS file
         ojs_name = row.get(COL_OJS_FILENAME)
         if ojs_name is None or (isinstance(ojs_name, float) and pd.isna(ojs_name)):
-            print_warning(f"No OJS filename for {row[COL_SHORT_NAME]}, skipping")
+            if not quiet:
+                print_warning(f"No OJS filename for {row[COL_SHORT_NAME]}, skipping")
+            logger.warning(f"No OJS filename for {row[COL_SHORT_NAME]}, skipping")
             continue
             
         ojs_path = os.path.join(dir_path, FOLDER_TOURNAMENTS, row[COL_SHORT_NAME], ojs_name)
@@ -278,35 +382,46 @@ def main():
         ojs_book = load_workbook(ojs_path, read_only=False, keep_vba=True)
         try:
             set_up_tapi_worksheet(row, ojs_book, dfAssignments, using_divisions)
-            progress.update("Team info added")
+            if not quiet:
+                progress.update("Team info added")
             
             set_up_award_worksheet(row, ojs_book, dfAwardDef, using_divisions)
-            progress.update("Awards configured")
+            if not quiet:
+                progress.update("Awards configured")
             
             set_up_meta_worksheet(row, ojs_book, config, dir_path, using_divisions)
-            progress.update("Metadata added")
+            if not quiet:
+                progress.update("Metadata added")
             
             add_conditional_formats(row, ojs_book)
             copy_award_def(row, ojs_book, dfAwardDef)
-            progress.update("Formatting applied")
+            if not quiet:
+                progress.update("Formatting applied")
             
             hide_worksheets(row, ojs_book)
-            progress.update("Worksheets hidden")
+            if not quiet:
+                progress.update("Worksheets hidden")
             
             resize_worksheets(row, ojs_book, dfAssignments, using_divisions)
-            progress.update("Tables resized")
+            if not quiet:
+                progress.update("Tables resized")
             
             protect_worksheets(row, ojs_book)
-            progress.update("Protection applied")
+            if not quiet:
+                progress.update("Protection applied")
             
         finally:
             ojs_book.save(ojs_path)
             ojs_book.close()
-            progress.complete(f"✓ {tournament_name} complete!")
+            if not quiet:
+                progress.complete(f"✓ {tournament_name} complete!")
+            else:
+                logger.info(f"✓ Completed: {tournament_name}")
 
-    print(f"\n{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}")
-    print(f"{Fore.GREEN}  ALL TOURNAMENTS PROCESSED SUCCESSFULLY!  {Style.RESET_ALL}".center(70))
-    print(f"{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}\n")
+    if not quiet:
+        print(f"\n{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}  ALL TOURNAMENTS PROCESSED SUCCESSFULLY!  {Style.RESET_ALL}".center(70))
+        print(f"{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}\n")
     
     logger.info("All tournaments processed successfully")
 
