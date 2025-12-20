@@ -14,32 +14,23 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
 .Python
 venv/
 .venv/
 ENV/
-env/
+*.log
 
 # IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-
-# Logs
-*.log
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Tournament output
+# Tournament output folders
 2025-all/tournaments/
-**/tournaments/
 
-# Temporary files
-*.tmp
+# Excel temp files
 ~$*.xlsx
 ~$*.xlsm
