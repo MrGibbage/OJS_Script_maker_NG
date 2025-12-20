@@ -51,10 +51,10 @@ def load_json_without_notes(path: str) -> dict:
         logger.debug(f"Loading configuration from: {path}")
         with open(path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
-        logger.info(f"Successfully loaded configuration from {path}")
+        logger.info(f"✓ Successfully loaded configuration")
     except json.JSONDecodeError as e:
         raise json.JSONDecodeError(
-            f"Invalid JSON in configuration file: {path}",
+            f"Invalid JSON syntax in configuration file: {path}",
             e.doc,
             e.pos
         ) from e
@@ -80,9 +80,15 @@ def create_folder(newpath: str) -> None:
     
     try:
         os.makedirs(newpath)
-        logger.info(f"Created folder: {newpath}")
+        logger.info(f"✓ Created folder: {newpath}")
     except PermissionError as e:
-        print_error(logger, f"Permission denied when creating directory: {newpath}", e)
+        print_error(
+            logger, 
+            f"Permission denied when creating directory: {newpath}", 
+            e,
+            error_type='permission_denied',
+            context={'filename': newpath}
+        )
     except OSError as e:
         print_error(logger, f"OS error when creating directory: {newpath}", e)
     except Exception as e:
@@ -118,13 +124,24 @@ def copy_files(
         try:
             source_path = os.path.join(dir_path, filename)
             if not os.path.exists(source_path):
-                print_error(logger, f"Source file not found: {source_path}")
+                print_error(
+                    logger,
+                    f"Source file not found: {source_path}",
+                    error_type='missing_file',
+                    context={'filename': filename, 'directory': dir_path}
+                )
                 
             dest_folder = os.path.join(dir_path, FOLDER_TOURNAMENTS, item[COL_SHORT_NAME])
             shutil.copy(source_path, dest_folder)
             logger.debug(f"Copied {filename} to {dest_folder}")
         except PermissionError as e:
-            print_error(logger, f"Permission denied copying file '{filename}' to {dest_folder}", e)
+            print_error(
+                logger,
+                f"Permission denied copying file '{filename}' to {dest_folder}",
+                e,
+                error_type='permission_denied',
+                context={'filename': filename}
+            )
         except Exception as e:
             print_error(logger, f"Could not copy file '{filename}' to {dest_folder}", e)
             

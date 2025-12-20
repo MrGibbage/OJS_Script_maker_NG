@@ -1,0 +1,55 @@
+2025-12-19 18:05:53 - ojs_builder - [32mINFO[0m - setup_logger:78 - Logging to file: C:\github-projects\OJS_Script_maker_NG\tournament_builder_20251219_180553.log
+2025-12-19 18:05:53 - ojs_builder - [32mINFO[0m - main:49 - === OJS Tournament Folder Builder ===
+2025-12-19 18:05:53 - ojs_builder - [32mINFO[0m - main:50 - Working directory: c:\github-projects\OJS_Script_maker_NG\2025-all
+2025-12-19 18:05:53 - ojs_builder - [32mINFO[0m - load_json_without_notes:54 - Successfully loaded configuration from c:\github-projects\OJS_Script_maker_NG\2025-all\season.json
+2025-12-19 18:05:53 - ojs_builder - [32mINFO[0m - main:81 - ✓ script_maker-win.exe
+2025-12-19 18:05:53 - ojs_builder - [32mINFO[0m - main:81 - ✓ script_maker-mac
+2025-12-19 18:05:53 - ojs_builder - [32mINFO[0m - main:81 - ✓ script_template.html.jinja
+2025-12-19 18:05:53 - ojs_builder - [32mINFO[0m - main:81 - ✓ instructions.pdf
+2025-12-19 18:05:53 - ojs_builder - [32mINFO[0m - main:87 - Loading tournament data from c:\github-projects\OJS_Script_maker_NG\2025-all\2025-FLL-Qualifier-Tournaments.xlsx
+2025-12-19 18:05:54 - ojs_builder - [32mINFO[0m - main:101 - Using divisions: True
+2025-12-19 18:05:54 - ojs_builder - [32mINFO[0m - main:115 - Loaded 40 tournament(s)
+2025-12-19 18:05:54 - ojs_builder - [32mINFO[0m - main:122 - Loaded 10 award definitions
+2025-12-19 18:05:54 - ojs_builder - [32mINFO[0m - main:130 - Loaded 417 team assignments
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:139 - Building single tournament: Norfolk
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:147 - 
+Processing 2 tournament(s)...
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:150 - =============================================
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:151 -                   Norfolk D1                 
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:152 - =============================================
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - create_folder:83 - Created folder: c:\github-projects\OJS_Script_maker_NG\2025-all\tournaments\Norfolk
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:159 - Copying files...
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - copy_files:115 - Copying files for tournament: Norfolk
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - copy_files:131 - Extra files copied successfully
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - copy_files:145 - OJS template copied to: c:\github-projects\OJS_Script_maker_NG\2025-all\tournaments\Norfolk\2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div1.xlsm
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:169 - Processing OJS file: 2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div1.xlsm
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - set_up_tapi_worksheet:40 - Setting up Team and Program Information for Norfolk
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - set_up_tapi_worksheet:52 - Found 5 teams in Norfolk D1
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - set_up_award_worksheet:93 - Setting up awards for Norfolk D1
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - set_up_meta_worksheet:154 - Setting up metadata for Norfolk D1
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - add_conditional_formats:518 - Adding conditional formats for 2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div1.xlsm
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - hide_worksheets:621 - Hiding worksheets for 2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div1.xlsm
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - resize_worksheets:365 - Resizing worksheets for 2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div1.xlsm
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - protect_worksheets:600 - Protecting worksheets for 2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div1.xlsm
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:185 - ✓ Completed: Norfolk D1
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:150 - =============================================
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:151 -                   Norfolk D2                 
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:152 - =============================================
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:159 - Copying files...
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - copy_files:115 - Copying files for tournament: Norfolk
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - copy_files:131 - Extra files copied successfully
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - copy_files:145 - OJS template copied to: c:\github-projects\OJS_Script_maker_NG\2025-all\tournaments\Norfolk\2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div2.xlsm
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - main:169 - Processing OJS file: 2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div2.xlsm
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - set_up_tapi_worksheet:40 - Setting up Team and Program Information for Norfolk
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - set_up_tapi_worksheet:52 - Found 7 teams in Norfolk D2
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - set_up_award_worksheet:93 - Setting up awards for Norfolk D2
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - set_up_meta_worksheet:154 - Setting up metadata for Norfolk D2
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - add_conditional_formats:518 - Adding conditional formats for 2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div2.xlsm
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - hide_worksheets:621 - Hiding worksheets for 2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div2.xlsm
+2025-12-19 18:05:58 - ojs_builder - [32mINFO[0m - resize_worksheets:365 - Resizing worksheets for 2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div2.xlsm
+2025-12-19 18:05:59 - ojs_builder - [32mINFO[0m - protect_worksheets:600 - Protecting worksheets for 2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div2.xlsm
+2025-12-19 18:05:59 - ojs_builder - [32mINFO[0m - main:185 - ✓ Completed: Norfolk D2
+2025-12-19 18:05:59 - ojs_builder - [32mINFO[0m - main:187 - 
+=============================================
+2025-12-19 18:05:59 - ojs_builder - [32mINFO[0m - main:188 - All tournaments processed successfully!
+2025-12-19 18:05:59 - ojs_builder - [32mINFO[0m - main:189 - =============================================

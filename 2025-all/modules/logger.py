@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from colorama import Fore, Style
+from .user_feedback import get_error_recovery_suggestions
 
 
 class ColoredFormatter(logging.Formatter):
@@ -80,22 +81,35 @@ def setup_logger(name: str = "ojs_builder", log_dir: str | None = None, debug: b
     return logger
 
 
-def print_error(logger: logging.Logger, errormsg: str, e: Exception | None = None) -> None:
-    """Log an error message and exit the program.
+def print_error(logger: logging.Logger, errormsg: str, e: Exception | None = None, error_type: str | None = None, context: dict | None = None) -> None:
+    """Log an error message with recovery suggestions and exit the program.
     
     Args:
         logger: Logger instance to use
         errormsg: The error message to display
         e: Optional exception object to include in the output
+        error_type: Type of error for recovery suggestions
+        context: Additional context for recovery suggestions
     """
     if e:
         logger.error(f"{errormsg}\n{e}", exc_info=True)
     else:
         logger.error(errormsg)
     
-    print(f"\n{Fore.RED}ERROR: {errormsg}{Style.RESET_ALL}")
+    print(f"\n{Fore.RED}{'═' * 70}{Style.RESET_ALL}")
+    print(f"{Fore.RED}ERROR: {errormsg}{Style.RESET_ALL}")
     if e:
         print(f"{Fore.RED}{e}{Style.RESET_ALL}")
     
-    input("\nPress enter to quit...")
+    # Display recovery suggestions if error type provided
+    if error_type and context:
+        suggestions = get_error_recovery_suggestions(error_type, context)
+        if suggestions:
+            print(f"\n{Fore.YELLOW}Suggested Actions:{Style.RESET_ALL}")
+            for i, suggestion in enumerate(suggestions, 1):
+                print(f"  {i}. {suggestion}")
+    
+    print(f"{Fore.RED}{'═' * 70}{Style.RESET_ALL}\n")
+    
+    input("Press enter to quit...")
     sys.exit(1)

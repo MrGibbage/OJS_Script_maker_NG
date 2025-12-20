@@ -265,14 +265,30 @@ def add_table_dataframe(
         return 0
 
     if sheet_name not in wb.sheetnames:
-        print_error(logger, f"Sheet '{sheet_name}' not found in workbook. "
-                   f"Available sheets: {', '.join(wb.sheetnames)}")
+        print_error(
+            logger,
+            f"Sheet '{sheet_name}' not found in workbook",
+            error_type='missing_sheet',
+            context={
+                'workbook': 'OJS file',
+                'sheet_name': sheet_name,
+                'available_sheets': list(wb.sheetnames)
+            }
+        )
     ws = wb[sheet_name]
 
     if table_name not in ws.tables:
         available_tables = ', '.join(ws.tables.keys()) if ws.tables else 'none'
-        print_error(logger, f"Table '{table_name}' not found on sheet '{sheet_name}'. "
-                   f"Available tables: {available_tables}")
+        print_error(
+            logger,
+            f"Table '{table_name}' not found on sheet '{sheet_name}'",
+            error_type='missing_table',
+            context={
+                'table_name': table_name,
+                'sheet_name': sheet_name,
+                'available_tables': list(ws.tables.keys())
+            }
+        )
     
     logger.debug(f"Adding {len(data)} rows to table '{table_name}' on sheet '{sheet_name}'")
     
