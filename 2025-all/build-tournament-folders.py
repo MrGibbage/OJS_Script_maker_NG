@@ -10,7 +10,7 @@ import os
 import sys
 import warnings
 from openpyxl import load_workbook
-from colorama import init
+from colorama import init, Fore, Style
 import pandas as pd
 import json
 

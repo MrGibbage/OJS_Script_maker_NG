@@ -1,0 +1,11 @@
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - setup_logger:79 - Logging to file: C:\github-projects\OJS_Script_maker_NG\tournament_builder_20251219_230237.log
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - print_info:110 - Working directory: c:\github-projects\OJS_Script_maker_NG\2025-all
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - load_json_without_notes:54 - ✓ Successfully loaded configuration
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - print_success:98 - Configuration loaded
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - main:157 - Opening 2025-FLL-Qualifier-Tournaments.xlsx...
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - print_success:98 - Tournament file opened successfully
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - main:173 - Using divisions: True
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - main:187 - Loaded 40 tournament(s)
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - main:194 - Loaded 10 award definitions
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - print_success:98 - Loaded 417 team assignments
+2025-12-19 23:02:37 - ojs_builder - [32mINFO[0m - print_info:110 - Available tournaments: Newport_News, Henrico_Godwin, Glen_Allen, Martinsville, Norfolk, Blacksburg, Abingdon, Charlottesville, Manassas_1, Chantilly, Manassas_2, Richmond, DC-McKinley, DC-Friendship, Ashburn, Alexandria, Henrico_Freeman, Hayfield_1, Hayfield_2, Newport_News, Henrico_Godwin, Glen_Allen, Martinsville, Norfolk, Blacksburg, Abingdon, Charlottesville, Manassas_1, Chantilly, Manassas_2, Richmond, DC-McKinley, DC-Friendship, Ashburn, Alexandria, Henrico_Freeman, Hayfield_1, Hayfield_2, Test, Test
