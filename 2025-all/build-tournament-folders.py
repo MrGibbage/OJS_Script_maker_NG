@@ -10,7 +10,14 @@ Usage:
     python build-tournament-folders.py --quiet       # Minimal output, no confirmations
     python build-tournament-folders.py --verbose     # Maximum output with debug logging
 """
-
+# TODO Add functionality to write a tournament_config.json file in each 
+# tournament folder. It will have settings for 
+# tournament_short_name (string)
+# tournament_long_name (string)
+# tournament_date (string)
+# using_divisions (true or false)
+# ojs_filenames (list of strings)
+# tournament_award_list (list of strings)
 import os
 import sys
 import warnings
