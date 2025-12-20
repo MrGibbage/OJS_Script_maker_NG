@@ -14,6 +14,9 @@ COL_LONG_NAME: str = "Long Name"
 COL_OJS_FILENAME: str = "OJS_FileName"
 COL_DIVISION: str = "Div"
 COL_ADVANCING: str = "ADV"
+COL_DATE: str = "Date"
+COL_COLUMN_NAME: str = "ColumnName"
+COL_DIV_AWARD: str = "DivAward"
 
 # Sheet names
 SHEET_TEAM_INFO: str = "Team and Program Information"
@@ -45,3 +48,18 @@ FILE_CLOSING_CEREMONY: str = "closing_ceremony.html"
 AWARD_COLUMN_PREFIX_JUDGED: str = "J_"
 AWARD_COLUMN_ROBOT_GAME: str = "P_AWD_RG"
 AWARD_LABEL_PREFIX: str = "Label"
+
+# Required columns for each table (for validation)
+# Maps table name to list of required column names
+REQUIRED_COLUMNS = {
+    "OfficialTeamList": ["Team #", "Team Name", "Coach Name"],
+    "RobotGameAwards": ["Robot Game Awards"],
+    "AwardListDropdowns": ["Award"],
+    "Meta": ["Key", "Value"],
+    "AwardDef": ["ColumnName"],  # Label columns are dynamic
+    "RobotGameScores": ["Team #"],
+    "InnovationProjectResults": ["Team #"],
+    "RobotDesignResults": ["Team #"],
+    "CoreValuesResults": ["Team #"],
+    "TournamentData": ["Team #"],
+}

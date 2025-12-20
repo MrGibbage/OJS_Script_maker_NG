@@ -15,7 +15,7 @@ from openpyxl.worksheet.cell_range import CellRange
 from copy import copy as _copy
 
 from .constants import (
-    SHEET_PASSWORD,
+    SHEET_PASSWORD, REQUIRED_COLUMNS,
     COL_TEAM_NUMBER, COL_TEAM_NAME, COL_COACH_NAME, COL_POD_NUMBER,
     COL_SHORT_NAME, COL_LONG_NAME, COL_OJS_FILENAME, COL_DIVISION, COL_ADVANCING,
     SHEET_TEAM_INFO, SHEET_AWARD_DROPDOWNS, SHEET_META, SHEET_AWARD_DEF,
@@ -109,6 +109,10 @@ def set_up_award_worksheet(
     """
     thisDiv = tournament[COL_DIVISION] if using_divisions else ""
     logger.info(f"Setting up awards for {tournament[COL_SHORT_NAME]} {thisDiv}")
+    
+    # Get available Label columns dynamically
+    label_columns = [col for col in dfAwardDef.columns if col.startswith(AWARD_LABEL_PREFIX)]
+    logger.debug(f"Found {len(label_columns)} label columns: {label_columns}")
 
     # Robot Game awards
     rg_raw = (
@@ -124,11 +128,19 @@ def set_up_award_worksheet(
     rg_awards_df = pd.DataFrame(columns=["Robot Game Awards"])
     for rg_award_num in range(1, rg_awards + 1):
         thisLabel = AWARD_LABEL_PREFIX + str(rg_award_num)
-        sel = dfAwardDef.loc[dfAwardDef["ColumnName"] == AWARD_COLUMN_ROBOT_GAME, thisLabel]
-        try:
-            thisValue = sel.iat[0]
-        except (IndexError, KeyError):
+        
+        # Check if this Label column exists
+        if thisLabel not in label_columns:
+            logger.warning(f"Label column '{thisLabel}' not found in AwardDef table, using blank value")
             thisValue = None
+        else:
+            sel = dfAwardDef.loc[dfAwardDef["ColumnName"] == AWARD_COLUMN_ROBOT_GAME, thisLabel]
+            try:
+                thisValue = sel.iat[0]
+            except (IndexError, KeyError):
+                logger.warning(f"Could not find value for {AWARD_COLUMN_ROBOT_GAME} in column {thisLabel}")
+                thisValue = None
+        
         rg_awards_df.loc[len(rg_awards_df)] = [thisValue]
 
     add_table_dataframe(book, SHEET_AWARD_DROPDOWNS, TABLE_ROBOT_GAME_AWARDS, rg_awards_df)
@@ -141,11 +153,19 @@ def set_up_award_worksheet(
         count = _to_int(series)
         for award_num in range(1, count + 1):
             label_col = AWARD_LABEL_PREFIX + str(award_num)
-            sel = dfAwardDef.loc[dfAwardDef["ColumnName"] == this_col_name, label_col]
-            try:
-                thisValue = sel.iat[0]
-            except (IndexError, KeyError):
+            
+            # Check if this Label column exists
+            if label_col not in label_columns:
+                logger.warning(f"Label column '{label_col}' not found in AwardDef table, using blank value")
                 thisValue = None
+            else:
+                sel = dfAwardDef.loc[dfAwardDef["ColumnName"] == this_col_name, label_col]
+                try:
+                    thisValue = sel.iat[0]
+                except (IndexError, KeyError):
+                    logger.warning(f"Could not find value for {this_col_name} in column {label_col}")
+                    thisValue = None
+            
             j_awards_df.loc[len(j_awards_df)] = [thisValue]
             
     add_table_dataframe(book, SHEET_AWARD_DROPDOWNS, TABLE_AWARD_DROPDOWNS, j_awards_df)

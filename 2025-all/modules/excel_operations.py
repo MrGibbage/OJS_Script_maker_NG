@@ -10,6 +10,7 @@ from openpyxl.workbook import Workbook
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string
 
 from .logger import print_error
+from .constants import REQUIRED_COLUMNS
 
 
 logger = logging.getLogger("ojs_builder")
@@ -237,18 +238,24 @@ def add_table_dataframe(
     sheet_name: str,
     table_name: str,
     data: pd.DataFrame,
-    require_all_columns: bool = True,
+    require_all_columns: bool = False,  # Changed default to False for more forgiving behavior
     keep_vba: bool = True,
     debug: bool = False,
 ) -> int:
     """Append a pandas.DataFrame to an existing Excel table.
+    
+    This function intelligently handles column mismatches:
+    - Validates DataFrame has all required columns for the table
+    - Uses only columns that exist in both DataFrame and OJS table
+    - Warns about extra columns in DataFrame or missing columns in OJS
+    - Fills OJS columns not in DataFrame with None
     
     Args:
         wb: The Excel workbook object
         sheet_name: Name of the worksheet containing the table
         table_name: Name of the Excel table to append to
         data: DataFrame containing the data to append
-        require_all_columns: If True, validate that DataFrame columns match table headers exactly
+        require_all_columns: If True, require exact column match (legacy mode)
         keep_vba: Placeholder for VBA preservation (not currently used)
         debug: If True, print diagnostic information
         
@@ -257,7 +264,7 @@ def add_table_dataframe(
         
     Raises:
         KeyError: If sheet or table is not found
-        ValueError: If DataFrame columns don't match table headers (when require_all_columns=True)
+        ValueError: If DataFrame is missing required columns
     """
     if data is None or data.empty:
         print_error(logger, "Attempting to add empty or None DataFrame to table. "
@@ -303,7 +310,40 @@ def add_table_dataframe(
 
     df = data.copy()
     df.columns = [c.strip() if isinstance(c, str) else c for c in df.columns]
+    
+    # Validate required columns
+    if table_name in REQUIRED_COLUMNS:
+        required_cols = REQUIRED_COLUMNS[table_name]
+        missing_required = [col for col in required_cols if col not in df.columns]
+        if missing_required:
+            raise ValueError(
+                f"DataFrame is missing required columns for table {table_name!r}: {missing_required}\n"
+                f"Required: {required_cols}\n"
+                f"DataFrame has: {list(df.columns)}"
+            )
+        logger.debug(f"✓ DataFrame has all required columns for {table_name}")
+    
+    # Check for column mismatches (more forgiving approach)
+    df_cols_set = set(df.columns)
+    table_cols_set = set(headers)
+    
+    extra_in_df = df_cols_set - table_cols_set
+    missing_in_df = table_cols_set - df_cols_set
+    matching_cols = df_cols_set & table_cols_set
+    
+    if extra_in_df:
+        logger.warning(
+            f"DataFrame has {len(extra_in_df)} column(s) not in OJS table '{table_name}': {sorted(extra_in_df)}"
+        )
+        logger.warning("These columns will be ignored")
+    
+    if missing_in_df:
+        logger.info(
+            f"OJS table '{table_name}' has {len(missing_in_df)} column(s) not in DataFrame: {sorted(missing_in_df)}"
+        )
+        logger.info("These columns will be filled with None")
 
+    # Legacy strict mode
     if require_all_columns:
         if list(df.columns) != headers:
             raise ValueError(
@@ -332,6 +372,7 @@ def add_table_dataframe(
             target_row_idx = row_tuple[0].row
             row_values = df.iloc[df_iter_index]
             for j, col_name in enumerate(headers):
+                # Only use value if column exists in DataFrame
                 val = row_values[col_name] if col_name in df.columns else None
                 ws.cell(row=target_row_idx, column=start_col_idx + j).value = val
             df_iter_index += 1
@@ -344,6 +385,7 @@ def add_table_dataframe(
         current_row += 1
         row_values = df.iloc[df_iter_index]
         for j, col_name in enumerate(headers):
+            # Only use value if column exists in DataFrame
             val = row_values[col_name] if col_name in df.columns else None
             ws.cell(row=current_row, column=start_col_idx + j).value = val
         df_iter_index += 1

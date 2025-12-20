@@ -10,14 +10,6 @@ Usage:
     python build-tournament-folders.py --quiet       # Minimal output, no confirmations
     python build-tournament-folders.py --verbose     # Maximum output with debug logging
 """
-# TODO Add functionality to write a tournament_config.json file in each 
-# tournament folder. It will have settings for 
-# tournament_short_name (string)
-# tournament_long_name (string)
-# tournament_date (string)
-# using_divisions (true or false)
-# ojs_filenames (list of strings)
-# tournament_award_list (list of strings)
 import os
 import sys
 import warnings
@@ -30,7 +22,12 @@ import json
 # Import from modules
 from modules.logger import setup_logger, print_error
 from modules.constants import *
-from modules.file_operations import load_json_without_notes, create_folder, copy_files
+from modules.file_operations import (
+    load_json_without_notes, 
+    create_folder, 
+    copy_files, 
+    generate_tournament_config
+)
 from modules.excel_operations import read_table_as_df, read_table_as_dict
 from modules.worksheet_setup import (
     set_up_tapi_worksheet,
@@ -384,6 +381,9 @@ def main():
     else:
         logger.info(f"Processing {len(dfTournaments)} tournament(s)...")
     
+    # Track division mismatches for final summary
+    division_mismatches = []
+    
     for index, row in dfTournaments.iterrows():
         tournament_name = f"{row[COL_SHORT_NAME]} {row.get(COL_DIVISION, '')}".strip()
         
@@ -465,6 +465,14 @@ def main():
             ojs_book.save(ojs_path)
             ojs_book.close()
             
+        # Generate tournament config file
+        mismatch_detected, tourn_name = generate_tournament_config(
+            row, config, dfAwardDef, using_divisions, tournament_folder, quiet=quiet
+        )
+        
+        if mismatch_detected:
+            division_mismatches.append(tourn_name)
+            
         if not quiet:
             progress.complete(f"✓ {tournament_name} complete!")
         else:
@@ -476,6 +484,22 @@ def main():
         print(f"{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}\n")
     
     logger.info("All tournaments processed successfully")
+    
+    # Display division mismatch summary if any occurred
+    if division_mismatches:
+        logger.warning(f"Division mismatches detected in {len(division_mismatches)} tournament(s)")
+        print(f"\n{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}  ⚠ DIVISION MISMATCH SUMMARY  {Style.RESET_ALL}".center(70))
+        print(f"{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}\n")
+        print(f"{Fore.YELLOW}The following tournament(s) had division mismatch issues:{Style.RESET_ALL}")
+        for tourn in division_mismatches:
+            print(f"  • {tourn}")
+        print(f"\n{Fore.YELLOW}These tournaments had tournament_config.json with using_divisions=false,")
+        print(f"but appeared to use divisions. The setting has been changed to true.{Style.RESET_ALL}")
+        print(f"\n{Fore.RED}⚠ ACTION REQUIRED:{Style.RESET_ALL}")
+        print(f"  Check season workbook settings before proceeding.")
+        print(f"  OJS files may not work as expected if division settings are incorrect.\n")
+        print(f"{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}\n")
 
 
 if __name__ == "__main__":
