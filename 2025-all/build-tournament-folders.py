@@ -432,29 +432,19 @@ def main():
                 progress.update("Tables resized")
             
             protect_worksheets(row, ojs_book)
-            if not quiet: post-processing based on whether we should save
+            if not quiet:
                 progress.update("Protection applied")
-             file we just created since there are no teams
-        finally:ists(ojs_path):
+            
+        finally:
             ojs_book.save(ojs_path)
-            ojs_book.close()t quiet:
-            nt_name}, OJS file removed")
-        if not quiet:            logger.warning(f"Skipped {tournament_name} - no teams assigned")
-            progress.complete(f"✓ {tournament_name} complete!")ld_save:
+            ojs_book.close()
+            
+        if not quiet:
+            progress.complete(f"✓ {tournament_name} complete!")
         else:
             logger.info(f"✓ Completed: {tournament_name}")
 
-    if not quiet:        ojs_book.close()
-        print(f"\n{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}")
-        print(f"{Fore.GREEN}  ALL TOURNAMENTS PROCESSED SUCCESSFULLY!  {Style.RESET_ALL}".center(70))                progress.complete(f"✓ {tournament_name} complete!")
-        print(f"{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}\n")            else:
-    o(f"✓ Completed: {tournament_name}")
-    logger.info("All tournaments processed successfully")
-
-
-
-
-    main()if __name__ == "__main__":    if not quiet:
+    if not quiet:
         print(f"\n{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}")
         print(f"{Fore.GREEN}  ALL TOURNAMENTS PROCESSED SUCCESSFULLY!  {Style.RESET_ALL}".center(70))
         print(f"{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}\n")
