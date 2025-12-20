@@ -392,7 +392,18 @@ def main():
         
         ojs_book = load_workbook(ojs_path, read_only=False, keep_vba=True)
         try:
-            set_up_tapi_worksheet(row, ojs_book, dfAssignments, using_divisions)
+            # Check if there are teams assigned; skip if not
+            has_teams = set_up_tapi_worksheet(row, ojs_book, dfAssignments, using_divisions)
+            if not has_teams:
+                ojs_book.close()
+                # Delete the OJS file we just created since there are no teams
+                if os.path.exists(ojs_path):
+                    os.remove(ojs_path)
+                if not quiet:
+                    print_warning(f"No teams assigned to {tournament_name}, OJS file removed")
+                logger.warning(f"Skipped {tournament_name} - no teams assigned")
+                continue
+            
             if not quiet:
                 progress.update("Team info added")
             

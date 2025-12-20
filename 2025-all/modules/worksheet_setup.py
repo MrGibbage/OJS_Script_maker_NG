@@ -27,7 +27,7 @@ def set_up_tapi_worksheet(
     book: Workbook,
     dfAssignments: pd.DataFrame,
     using_divisions: bool
-) -> None:
+) -> bool:
     """Populate the 'Team and Program Information' table.
 
     Args:
@@ -35,6 +35,9 @@ def set_up_tapi_worksheet(
         book: An open openpyxl Workbook object
         dfAssignments: DataFrame containing team assignments
         using_divisions: Boolean indicating if divisions are used
+        
+    Returns:
+        True if successful, False if no teams assigned (should skip this tournament)
     """
     d = ""
     logger.info(f"Setting up Team and Program Information for {tournament[COL_SHORT_NAME]}")
@@ -60,7 +63,12 @@ def set_up_tapi_worksheet(
         ]
         logger.info(f"Found {len(assignees)} teams in {tournament[COL_SHORT_NAME]}")
 
-    # Validate required columns
+    # Check if there are any teams assigned
+    if len(assignees) == 0:
+        logger.warning(f"No teams assigned to {tournament[COL_SHORT_NAME]} {d} - skipping")
+        return False
+
+    # Validate required columns exist
     keep = [COL_TEAM_NUMBER, COL_TEAM_NAME, COL_COACH_NAME]
     keep_safe = [c for c in keep if c in assignees.columns]
     
@@ -73,6 +81,7 @@ def set_up_tapi_worksheet(
     sorted_assignees = assignees.sort_values(by=COL_TEAM_NUMBER, ascending=True)
     
     add_table_dataframe(book, SHEET_TEAM_INFO, TABLE_TEAM_LIST, sorted_assignees)
+    return True
 
 
 def set_up_award_worksheet(

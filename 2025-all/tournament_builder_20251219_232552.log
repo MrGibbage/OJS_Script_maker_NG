@@ -1,0 +1,79 @@
+2025-12-19 23:25:52 - ojs_builder - [32mINFO[0m - setup_logger:79 - Logging to file: C:\github-projects\OJS_Script_maker_NG\2025-all\tournament_builder_20251219_232552.log
+2025-12-19 23:25:52 - ojs_builder - [32mINFO[0m - main:170 - Starting tournament folder builder
+2025-12-19 23:25:52 - ojs_builder - [36mDEBUG[0m - load_json_without_notes:51 - Loading configuration from: C:\github-projects\OJS_Script_maker_NG/2025-all\season.json
+2025-12-19 23:25:52 - ojs_builder - [32mINFO[0m - load_json_without_notes:54 - ✓ Successfully loaded configuration
+2025-12-19 23:25:52 - ojs_builder - [32mINFO[0m - main:227 - Opening 2025-FLL-Qualifier-Tournaments.xlsx...
+2025-12-19 23:25:52 - ojs_builder - [36mDEBUG[0m - read_table_as_dict:197 - Reading table 'SeasonInfo' as dictionary
+2025-12-19 23:25:52 - ojs_builder - [36mDEBUG[0m - read_table_as_df:74 - Reading table 'SeasonInfo' from sheet 'SeasonInfo' in C:\github-projects\OJS_Script_maker_NG/2025-all\2025-FLL-Qualifier-Tournaments.xlsx
+2025-12-19 23:25:52 - ojs_builder - [36mDEBUG[0m - read_table_as_df:168 - Read 3 rows from table 'SeasonInfo'
+2025-12-19 23:25:52 - ojs_builder - [36mDEBUG[0m - read_table_as_dict:231 - Loaded 3 key-value pairs from table 'SeasonInfo'
+2025-12-19 23:25:52 - ojs_builder - [32mINFO[0m - main:244 - Using divisions: True
+2025-12-19 23:25:52 - ojs_builder - [36mDEBUG[0m - read_table_as_df:74 - Reading table 'DivTournamentList' from sheet 'DivTournaments' in C:\github-projects\OJS_Script_maker_NG/2025-all\2025-FLL-Qualifier-Tournaments.xlsx
+2025-12-19 23:25:52 - ojs_builder - [36mDEBUG[0m - read_table_as_df:168 - Read 40 rows from table 'DivTournamentList'
+2025-12-19 23:25:52 - ojs_builder - [32mINFO[0m - main:258 - Loaded 40 tournament(s)
+2025-12-19 23:25:52 - ojs_builder - [36mDEBUG[0m - read_table_as_df:74 - Reading table 'AwardDef' from sheet 'AwardDef' in C:\github-projects\OJS_Script_maker_NG/2025-all\2025-FLL-Qualifier-Tournaments.xlsx
+2025-12-19 23:25:53 - ojs_builder - [36mDEBUG[0m - read_table_as_df:168 - Read 10 rows from table 'AwardDef'
+2025-12-19 23:25:53 - ojs_builder - [32mINFO[0m - main:265 - Loaded 10 award definitions
+2025-12-19 23:25:53 - ojs_builder - [36mDEBUG[0m - read_table_as_df:74 - Reading table 'Assignments' from sheet 'Assignments' in C:\github-projects\OJS_Script_maker_NG/2025-all\2025-FLL-Qualifier-Tournaments.xlsx
+2025-12-19 23:25:53 - ojs_builder - [36mDEBUG[0m - read_table_as_df:168 - Read 417 rows from table 'Assignments'
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - main:333 - Building single tournament: Manassas_1
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - main:359 - Processing 2 tournament(s)...
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - main:370 - Processing Manassas_1 D1
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - create_folder:78 - Folder already exists: C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - copy_files:121 - Copying files for tournament: Manassas_1
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - copy_files:136 - Copied script_maker-win.exe to C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - copy_files:136 - Copied script_maker-mac to C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - copy_files:136 - Copied script_template.html.jinja to C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - copy_files:136 - Copied instructions.pdf to C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - copy_files:148 - Extra files copied successfully
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - copy_files:162 - OJS template copied to: C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1\2025-vadc-fll-challenge-Unearthed-ojs-Manassas_1-div1.xlsm
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - set_up_tapi_worksheet:40 - Setting up Team and Program Information for Manassas_1
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - set_up_tapi_worksheet:52 - Found 24 teams in Manassas_1 D1
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_table_dataframe:293 - Adding 24 rows to table 'OfficialTeamList' on sheet 'Team and Program Information'
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_table_dataframe:357 - Wrote 24 rows to table 'OfficialTeamList'
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - set_up_award_worksheet:93 - Setting up awards for Manassas_1 D1
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_table_dataframe:293 - Adding 3 rows to table 'RobotGameAwards' on sheet 'AwardListDropdowns'
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_table_dataframe:357 - Wrote 3 rows to table 'RobotGameAwards'
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_table_dataframe:293 - Adding 16 rows to table 'AwardListDropdowns' on sheet 'AwardListDropdowns'
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_table_dataframe:357 - Wrote 16 rows to table 'AwardListDropdowns'
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - set_up_award_worksheet:134 - Added 3 robot game awards and 16 judged awards
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - set_up_meta_worksheet:154 - Setting up metadata for Manassas_1 D1
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_table_dataframe:293 - Adding 8 rows to table 'Meta' on sheet 'Meta'
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_table_dataframe:357 - Wrote 8 rows to table 'Meta'
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - add_conditional_formats:518 - Adding conditional formats for 2025-vadc-fll-challenge-Unearthed-ojs-Manassas_1-div1.xlsm
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_conditional_formats:590 - Conditional formatting applied
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - copy_award_def:507 - Adding award definitions table
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_table_dataframe:293 - Adding 10 rows to table 'AwardDef' on sheet 'AwardDef'
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - add_table_dataframe:357 - Wrote 10 rows to table 'AwardDef'
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - hide_worksheets:621 - Hiding worksheets for 2025-vadc-fll-challenge-Unearthed-ojs-Manassas_1-div1.xlsm
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - hide_worksheets:628 - Hid worksheet: Data Validation
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - hide_worksheets:628 - Hid worksheet: Meta
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - hide_worksheets:628 - Hid worksheet: AwardListDropdowns
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - hide_worksheets:628 - Hid worksheet: AwardDef
+2025-12-19 23:25:59 - ojs_builder - [32mINFO[0m - resize_worksheets:365 - Resizing worksheets for 2025-vadc-fll-challenge-Unearthed-ojs-Manassas_1-div1.xlsm
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - copy_team_numbers:243 - copy_team_numbers: copied 24 rows
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - copy_team_numbers:243 - copy_team_numbers: copied 24 rows
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - copy_team_numbers:243 - copy_team_numbers: copied 24 rows
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - copy_team_numbers:243 - copy_team_numbers: copied 24 rows
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - copy_team_numbers:243 - copy_team_numbers: copied 24 rows
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - resize_worksheets:427 - Resized table RobotGameScores: A1:F25
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - resize_worksheets:427 - Resized table InnovationProjectResults: A1:O25
+2025-12-19 23:25:59 - ojs_builder - [36mDEBUG[0m - resize_worksheets:427 - Resized table RobotDesignResults: A1:O25
+2025-12-19 23:26:00 - ojs_builder - [36mDEBUG[0m - resize_worksheets:427 - Resized table CoreValuesResults: A1:T25
+2025-12-19 23:26:00 - ojs_builder - [36mDEBUG[0m - resize_worksheets:427 - Resized table TournamentData: A2:W26
+2025-12-19 23:26:00 - ojs_builder - [36mDEBUG[0m - resize_worksheets:496 - Worksheet resizing complete
+2025-12-19 23:26:00 - ojs_builder - [32mINFO[0m - protect_worksheets:600 - Protecting worksheets for 2025-vadc-fll-challenge-Unearthed-ojs-Manassas_1-div1.xlsm
+2025-12-19 23:26:00 - ojs_builder - [36mDEBUG[0m - protect_worksheets:611 - Worksheet protection applied
+2025-12-19 23:26:00 - ojs_builder - [32mINFO[0m - main:430 - ✓ Completed: Manassas_1 D1
+2025-12-19 23:26:00 - ojs_builder - [32mINFO[0m - main:370 - Processing Manassas_1 D2
+2025-12-19 23:26:00 - ojs_builder - [36mDEBUG[0m - create_folder:78 - Folder already exists: C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1
+2025-12-19 23:26:00 - ojs_builder - [32mINFO[0m - copy_files:121 - Copying files for tournament: Manassas_1
+2025-12-19 23:26:00 - ojs_builder - [36mDEBUG[0m - copy_files:136 - Copied script_maker-win.exe to C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1
+2025-12-19 23:26:00 - ojs_builder - [36mDEBUG[0m - copy_files:136 - Copied script_maker-mac to C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1
+2025-12-19 23:26:00 - ojs_builder - [36mDEBUG[0m - copy_files:136 - Copied script_template.html.jinja to C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1
+2025-12-19 23:26:00 - ojs_builder - [36mDEBUG[0m - copy_files:136 - Copied instructions.pdf to C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1
+2025-12-19 23:26:00 - ojs_builder - [32mINFO[0m - copy_files:148 - Extra files copied successfully
+2025-12-19 23:26:00 - ojs_builder - [32mINFO[0m - copy_files:162 - OJS template copied to: C:\github-projects\OJS_Script_maker_NG/2025-all\tournaments\Manassas_1\2025-vadc-fll-challenge-Unearthed-ojs-Manassas_1-div2.xlsm
+2025-12-19 23:26:00 - ojs_builder - [32mINFO[0m - set_up_tapi_worksheet:40 - Setting up Team and Program Information for Manassas_1
+2025-12-19 23:26:00 - ojs_builder - [32mINFO[0m - set_up_tapi_worksheet:52 - Found 0 teams in Manassas_1 D2
+2025-12-19 23:26:00 - ojs_builder - [31mERROR[0m - print_error:97 - Attempting to add empty or None DataFrame to table. Sheet: Team and Program Information, Table: OfficialTeamList
