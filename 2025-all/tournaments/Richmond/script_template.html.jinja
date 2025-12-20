@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>{{ tournament_name }} Closing Ceremony Script</title>
+</head>
+<body>
+<h1>{{ tournament_name }} Closing Ceremony</h1>
+<p>Welcome to the {{ tournament_name }}! Today, we are here to celebrate the achievements of the FIRST<sup>&#174;</sup> LEGO<sup>&#174;</sup> League Challenge teams that are here! Please turn your attention to [area where teams are] as we celebrate each team with the Parade of Teams!</p>
+
+<h2>Parade of Teams</h2>
+
+{{ div1_list }}
+
+{{ div2_list }}
+
+<p><i>The Emcee can announce each team as they move through a line of volunteers to receive their tournament ribbons. You might want to funnel them into a "reserved for teams" seating area in the stands.</i></p>
+
+<p>We started this tournament with a shared mission: to innovate, to learn, and to celebrate the UNEARTHED season. Every single team brought something special, and we've seen amazing robots, brilliant solutions, and above all, incredible teamwork. Today, each of you has embodied the values of FIRST LEGO League - discovery, impact, inclusion, innovation, teamwork, and fun!</p>
+
+<p>Teams - Congratulations on a great season! The journey that got you to this point defines each one of you as a FIRST LEGO League champion and winner, and this tournament ribbon celebrates this achievement.</p>
+
+<p>We want to thank our FIRST LEGO League Global Sponsors, LEGO Education and The LEGO Foundation.  We also want to say a big thank you to our tournament sponsors; James Madison University's Division of Research, Economic Development, and Innovation.</p>
+
+<p>Before we get to the team awards, we want to take a moment to recognize our volunteers. Volunteers - please stand and wave to the crowd! Teams - please give a round of applause for our volunteers. No words can adequately express our appreciation for you.</p>
+
+<p>No tournament can happen without the support, time, and commitment of our volunteers. At every tournament, there are those individuals who are the “go-to” people, the “make it happen” people. Our first award goes to just such a person - a person who really went above and beyond to make this tournament a success.</p>
+
+<h2>Coach Recognition</h2>
+<p>Coaches and mentors, please stand. These are the special volunteers who have spent hours each week with the teams. They have inspired, encouraged, and motivated, all the while demonstrating and modeling <i>Gracious Professionalism</i><sup>&#174;</sup>. Teams, take a moment to tell your coaches how much you appreciate all they have done for you.</p>
+
+<p>There are special volunteers who have spent hours each week with the teams. </p>
+
+<p>Coaches and mentors - please stand. You all have inspired, encouraged, and motivated your team, all the while demonstrating and modeling Gracious Professionalism®. Teams, take a moment to tell your coaches how much you appreciate all they have done for you.</p>
+
+<p>If you would like to nominate your coach or mentor for a Virginia-DC FIRST LEGO League Challenge Coach/ Mentor Award, go to va-dcfll.org to read more about the award and submit your digital nomination!</p>
+
+<p>So let's play a quick game. Coaches, mentors, and Event Volunteers - Stand (or if you are standing, raise your hand).   We have volunteers - coaches and event volunteers who keep coming back year and after year, giving their time, expertise and support.</p>
+
+<p>Please sit or put your hand down if this was your first season!  We hope to see you back next season.  Now, sit or hands down if this is your second season, third season, fourth, fifth, sixth…. [Continue until only one person remains].  Wow!  Let's hear it for such an amazing accomplishment.  Thank you and all the coaches and volunteers for making the magic happen!</p>
+
+<h2>Robot Performance Awards</h2>
+
+<p>Now on to the Team Awards!  We begin with the Robot Performance Awards.  This award celebrates teams that score the most points during the Robot Game. Teams have a chance to compete in three two-and-a-half-minute matches and their highest score counts.</p>
+
+<!-- Robot Game Scores -->
+{{ rg_div1_list }}
+
+{{ rg_div2_list }}
+
+<h2>Innovation Project Award</h2>
+
+<p>Congratulations on those Robot Performance Awards!  Such amazing robot action from all teams today.  Now, we moved on to the Judged Awards.  First the Innovation Project Award.  </p>
+
+<p>During our archeology-themed season, {{ ip_this_them }} utilized diverse resources for their Innovation Project to help them gain a comprehensive understanding of the problem they identified, developed a creative, well-researched solution and effectively communicated their findings to judges and the community.</p>
+
+{{ ip_div1_list }}
+
+{{ ip_div2_list }}
+
+<h2>Robot Design Award</h2>
+<p>Congratulations on those amazing projects! Next - we move to the Robot Design Award.</p>
+
+<!-- Robot Design Judging -->
+<p>{{ rd_this_them }} used outstanding programming principles and solid engineering practices to develop a robot that is mechanically sound, durable, efficient, and highly capable of performing challenge missions.</p>
+
+{{ rd_div1_list }}
+
+{{ rd_div2_list }}
+
+<h2>Core Values Award</h2>
+<p>Congratulations to our Robot Design Award winners.  Now, our Core Values Award. This award celebrates teams that display extraordinary enthusiasm and spirit, they know that they can accomplish more together than they could as individuals, and they show each other and other teams respect at all times.</p>
+
+{{ cv_div1_list }}
+
+{{ cv_div2_list }}
+
+{% if ja_count > 0 %}
+<h2>Judge's Award</h2>
+<p>In addition to our Core Awards, we also have {{ ja_count }} judge's award to give out.  A Judge's Award is given to a team who made a big impact on our Judges for one spectacular reason or another.</p>
+
+<p>{{ ja_go_goes }}:</p>
+{{ ja_list }}</p>
+{% endif %}
+
+<h2>Other Recognition</h2>
+<p>Before we announce our final award, let's take a quick moment to acknowledge those teams who are with us for the last time. Please stand if you are in 8th grade and aging out of FIRST LEGO League at the end of this season! We want to congratulate you for everything you've achieved, and we hope to see you continue your robotics journey on a FIRST<sup>&#174;</sup> Tech Challenge or FIRST<sup>&#174;</sup> Robotics Competition Team next year!</p>
+
+<p>Now, let's hear it for our FIRST alumni. If you are a coach, volunteer, or supporter with us today and graduated from a FIRST program, please stand. Teams, we hope to see you join these ranks someday! </p>
+
+<h2>Champion's Award</h2>
+<p>Finally, we come to our Champion's Award. The Champion's Award celebrates a team that embodies the FIRST LEGO League experience, by fully embracing our Core Values while achieving excellence and innovation in Robot Performance, Robot Design, and the Innovation Project.</p>
+
+{{ champ_div1_list }}
+
+{{ champ_div2_list }}
+
+
+<h2>Advancing Teams</h2>
+<p>Wow!  A huge congratulations to our Champions Award winning teams.  We know you will go on to represent our tournament well at the Virginia and Washington, DC FIRST LEGO League Challenge Championship.  Here is the complete list of teams that will move on to compete in that championship event at James Madison University.  Division 1 teams will compete on Saturday, January 10th and Division 2 teams will compete on Sunday, January 11th:</p>
+
+{% if adv_div1_list != "" %}
+<p>The Division 1 teams that are advancing are</p>
+{{ adv_div1_list }}
+{% endif %}
+
+{% if adv_div2_list != "" %}
+<p>The Division 2 teams that are advancing are</p>
+{{ adv_div2_list }}
+{% endif %}
+
+<h2>Closing</h2>
+<p>Friends, this concludes the Awards Ceremony for this year's season, UNEARTHED, part of the FIRST AGE season. Please join me in congratulating all the teams on their fantastic performance! Just as a reminder, teams will receive their rubrics <i>[insert how teams receive their rubrics here]</i>. But, this isn't goodbye. We hope you can join us next season for more STEM fun! To learn more about our other programs, visit our website at www.firstinspires.org.</p>
+
+<p>Thank you for being here, and for supporting all of these amazing students. We look forward to seeing you all again next year! Get home safely!</p>
+
+<p>This concludes our tournament for today.</p>
+
+<p>Thank you again for sharing the excitement with us.</p>
+</body>
+</html>

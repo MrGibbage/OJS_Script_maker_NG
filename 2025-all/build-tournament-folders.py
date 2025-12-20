@@ -63,7 +63,7 @@ def parse_arguments():
         epilog=""":
 Examples:
   %(prog)s                    Run in quiet mode (default)
-  %(prog)s --interactive      Run with prompts and validation summary
+  %(prog)s --interactive      Run with prompts, validation summary, and confirmations
   %(prog)s --verbose          Run with debug logging enabled
   %(prog)s --tournament ABC   Build only tournament with short name 'ABC'
         """
@@ -306,31 +306,42 @@ def main():
                 }
             )
     else:
-        # Interactive selection (unless quiet)
+        # ALWAYS prompt for tournament selection (even in quiet mode)
         if not quiet:
             print_section_header("TOURNAMENT SELECTION")
-            if len(tourn_array) > 1:
+        
+        if len(tourn_array) > 1:
+            if not quiet:
                 print_info(f"Available tournaments: {', '.join(tourn_array)}")
-                tourn = input(f"\n{Fore.CYAN}Enter tournament short name, or press ENTER for all: {Style.RESET_ALL}").strip()
             else:
-                tourn = ""
-                print_info(f"Single tournament detected: {tourn_array[0]}")
+                print(f"\n{Fore.CYAN}Available tournaments: {', '.join(tourn_array)}{Style.RESET_ALL}")
             
-            if tourn != "":
-                if tourn in tourn_array:
-                    dfTournaments = dfTournaments.loc[dfTournaments[COL_SHORT_NAME] == tourn]
+            tourn = input(f"{Fore.CYAN}Enter tournament short name, or press ENTER for all: {Style.RESET_ALL}").strip()
+        else:
+            if not quiet:
+                print_info(f"Single tournament detected: {tourn_array[0]}")
+            else:
+                print(f"{Fore.CYAN}Single tournament detected: {tourn_array[0]}{Style.RESET_ALL}")
+            tourn = ""
+        
+        if tourn != "":
+            if tourn in tourn_array:
+                dfTournaments = dfTournaments.loc[dfTournaments[COL_SHORT_NAME] == tourn]
+                if not quiet:
                     print_success(f"Building single tournament: {tourn}")
                 else:
-                    print_error(
-                        logger,
-                        f"Tournament '{tourn}' not found",
-                        error_type='invalid_data',
-                        context={
-                            'location': 'tournament selection',
-                            'expected': f"One of: {', '.join(tourn_array)}",
-                            'found': tourn
-                        }
-                    )
+                    logger.info(f"Building single tournament: {tourn}")
+            else:
+                print_error(
+                    logger,
+                    f"Tournament '{tourn}' not found",
+                    error_type='invalid_data',
+                    context={
+                        'location': 'tournament selection',
+                        'expected': f"One of: {', '.join(tourn_array)}",
+                        'found': tourn
+                    }
+                )
 
     # Confirm before processing (unless quiet)
     if not quiet:
