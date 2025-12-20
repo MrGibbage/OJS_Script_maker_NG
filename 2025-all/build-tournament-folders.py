@@ -381,8 +381,9 @@ def main():
     else:
         logger.info(f"Processing {len(dfTournaments)} tournament(s)...")
     
-    # Track division mismatches for final summary
+    # Track division mismatches and award count mismatches for final summary
     division_mismatches = []
+    award_count_issues = {}  # tournament_name -> list of mismatch messages
     
     for index, row in dfTournaments.iterrows():
         tournament_name = f"{row[COL_SHORT_NAME]} {row.get(COL_DIVISION, '')}".strip()
@@ -466,12 +467,15 @@ def main():
             ojs_book.close()
             
         # Generate tournament config file
-        mismatch_detected, tourn_name = generate_tournament_config(
+        mismatch_detected, tourn_name, award_mismatches = generate_tournament_config(
             row, config, dfAwardDef, using_divisions, tournament_folder, quiet=quiet
         )
         
         if mismatch_detected:
             division_mismatches.append(tourn_name)
+        
+        if award_mismatches:
+            award_count_issues[tourn_name] = award_mismatches
             
         if not quiet:
             progress.complete(f"✓ {tournament_name} complete!")
@@ -499,6 +503,25 @@ def main():
         print(f"\n{Fore.RED}⚠ ACTION REQUIRED:{Style.RESET_ALL}")
         print(f"  Check season workbook settings before proceeding.")
         print(f"  OJS files may not work as expected if division settings are incorrect.\n")
+        print(f"{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}\n")
+    
+    # Display award count mismatch summary if any occurred
+    if award_count_issues:
+        logger.warning(f"Award count mismatches detected in {len(award_count_issues)} tournament(s)")
+        print(f"\n{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}  ⚠ AWARD COUNT MISMATCH SUMMARY  {Style.RESET_ALL}".center(70))
+        print(f"{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}\n")
+        print(f"{Fore.YELLOW}Tournament-level awards should have the same count in both divisions.{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}The following mismatches were found:{Style.RESET_ALL}\n")
+        for tourn, mismatches in award_count_issues.items():
+            print(f"{Fore.CYAN}{tourn}:{Style.RESET_ALL}")
+            for mismatch in mismatches:
+                print(f"  • {mismatch}")
+            print()
+        print(f"{Fore.RED}⚠ ACTION REQUIRED:{Style.RESET_ALL}")
+        print(f"  Check the season workbook tournament tables (TournamentList/DivTournamentList).")
+        print(f"  Verify tournament-level award counts match between divisions.")
+        print(f"  OJS files may not work as expected if award counts are incorrect.\n")
         print(f"{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}\n")
 
 

@@ -179,12 +179,13 @@ def generate_tournament_config(
     using_divisions: bool,
     tournament_folder: str,
     quiet: bool = False
-) -> tuple[bool, str]:
+) -> tuple[bool, str, list[str]]:
     """Generate or update tournament_config.json file for a tournament.
     
     Creates a JSON configuration file in the tournament folder with tournament
     metadata and settings. For tournaments with divisions, updates existing file
-    by appending to ojs_filenames array.
+    by appending to ojs_filenames array. Validates that tournament-level award
+    counts match between divisions.
     
     Args:
         tournament_row: Row from dfTournaments with tournament data
@@ -195,8 +196,9 @@ def generate_tournament_config(
         quiet: If True, suppress info messages
         
     Returns:
-        Tuple of (mismatch_detected: bool, tournament_name: str)
+        Tuple of (mismatch_detected: bool, tournament_name: str, award_count_mismatches: list[str])
         mismatch_detected is True if JSON existed with using_divisions=False
+        award_count_mismatches contains descriptions of any award count mismatches found
         
     Raises:
         Exits via print_error if critical errors occur
@@ -212,6 +214,7 @@ def generate_tournament_config(
     # Check if config file already exists
     existing_config = None
     mismatch_detected = False
+    award_count_mismatches = []
     
     if os.path.exists(config_file_path):
         try:
@@ -265,9 +268,34 @@ def generate_tournament_config(
                     context={'filename': 'tournament_config.json'}
                 )
             
-            return (mismatch_detected, tournament_name)
+            return (mismatch_detected, tournament_name, award_count_mismatches)
         else:
-            # Normal division 2 scenario: just append filename
+            # Normal division 2 scenario: append filename and validate award counts
+            
+            # For using_divisions tournaments, validate tournament-level award counts match
+            if using_divisions and "tournament_award_counts" in existing_config:
+                stored_counts = existing_config["tournament_award_counts"]
+                
+                for award_col, div1_count in stored_counts.items():
+                    # Get the count from current row (division 2)
+                    current_count = tournament_row.get(award_col, 0)
+                    if pd.isna(current_count):
+                        current_count = 0
+                    else:
+                        current_count = int(current_count)
+                    
+                    # Compare counts
+                    if current_count != div1_count:
+                        mismatch_msg = f"{award_col}: Div1={div1_count}, Div2={current_count}"
+                        award_count_mismatches.append(mismatch_msg)
+                        warning_msg = (
+                            f"⚠ AWARD COUNT MISMATCH for {tournament_short_name}: "
+                            f"{award_col} has Div1={div1_count} but Div2={current_count}. "
+                            f"Tournament-level awards should have the same count. Check season workbook."
+                        )
+                        print(f"\n{Fore.YELLOW}{warning_msg}{Style.RESET_ALL}\n")
+                        logger.warning(warning_msg)
+            
             existing_config["ojs_filenames"].append(tournament_row[COL_OJS_FILENAME])
             
             try:
@@ -285,7 +313,7 @@ def generate_tournament_config(
                     context={'filename': 'tournament_config.json'}
                 )
             
-            return (mismatch_detected, tournament_name)
+            return (mismatch_detected, tournament_name, award_count_mismatches)
     
     # Create new config file
     logger.debug("Creating new tournament_config.json")
@@ -296,6 +324,7 @@ def generate_tournament_config(
     
     # Build award list: columns starting with J_AWD or P_AWD where value > 0
     tournament_award_list = []
+    tournament_award_counts = {}  # Store counts for division validation
     
     for col in tournament_row.index:
         # Check if column is an award column
@@ -313,16 +342,20 @@ def generate_tournament_config(
                         if isinstance(div_award_value, bool):
                             if not div_award_value:
                                 tournament_award_list.append(col)
+                                tournament_award_counts[col] = int(value)
                         elif isinstance(div_award_value, str):
                             if div_award_value.upper() == "FALSE":
                                 tournament_award_list.append(col)
+                                tournament_award_counts[col] = int(value)
                         elif div_award_value == 0:  # Sometimes FALSE is stored as 0
                             tournament_award_list.append(col)
+                            tournament_award_counts[col] = int(value)
                     else:
                         logger.warning(f"Award column '{col}' not found in AwardDef for {tournament_short_name}")
                 else:
                     # Not using divisions: all awards are tournament-level
                     tournament_award_list.append(col)
+                    tournament_award_counts[col] = int(value)
     
     logger.debug(f"Found {len(tournament_award_list)} tournament-level awards")
     
@@ -335,7 +368,7 @@ def generate_tournament_config(
         "tournament_date": str(tournament_date) if pd.notna(tournament_date) else "",
         "using_divisions": using_divisions,
         "ojs_filenames": [tournament_row[COL_OJS_FILENAME]],
-        "tournament_award_list": tournament_award_list
+        "tournament_award_counts": tournament_award_counts
     }
     
     # Write config file
@@ -354,4 +387,4 @@ def generate_tournament_config(
             context={'filename': 'tournament_config.json'}
         )
     
-    return (mismatch_detected, tournament_name)
+    return (mismatch_detected, tournament_name, award_count_mismatches)
