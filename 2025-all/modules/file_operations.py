@@ -7,7 +7,7 @@ import logging
 from typing import Any
 import pandas as pd
 
-from .constants import COL_SHORT_NAME, COL_OJS_FILENAME, FOLDER_TOURNAMENTS
+from .constants import COL_SHORT_NAME, COL_OJS_FILENAME
 from .logger import print_error
 
 
@@ -99,15 +99,17 @@ def copy_files(
     item: pd.Series,
     dir_path: str,
     template_file: str,
-    extrafilelist: list[str]
+    extrafilelist: list[str],
+    tournament_folder: str
 ) -> None:
     """Copy extra files and OJS template into tournament folder.
     
     Args:
         item: Tournament row with 'Short Name' and 'OJS_FileName'
-        dir_path: Base directory containing tournaments
+        dir_path: Base directory containing source files
         template_file: Path to OJS template workbook
         extrafilelist: List of filenames to copy
+        tournament_folder: Root folder where tournament subfolders are created
         
     Raises:
         Exits via print_error if any copy operation fails
@@ -131,7 +133,7 @@ def copy_files(
                     context={'filename': filename, 'directory': dir_path}
                 )
                 
-            dest_folder = os.path.join(dir_path, FOLDER_TOURNAMENTS, item[COL_SHORT_NAME])
+            dest_folder = os.path.join(tournament_folder, item[COL_SHORT_NAME])
             shutil.copy(source_path, dest_folder)
             logger.debug(f"Copied {filename} to {dest_folder}")
         except PermissionError as e:
@@ -153,8 +155,7 @@ def copy_files(
             print_error(logger, f"OJS template file not found: {template_file}")
             
         new_ojs_file = os.path.join(
-            dir_path,
-            FOLDER_TOURNAMENTS,
+            tournament_folder,
             item[COL_SHORT_NAME],
             item[COL_OJS_FILENAME]
         )

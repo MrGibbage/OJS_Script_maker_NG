@@ -14,7 +14,16 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.cell_range import CellRange
 from copy import copy as _copy
 
-from .constants import *
+from .constants import (
+    SHEET_PASSWORD,
+    COL_TEAM_NUMBER, COL_TEAM_NAME, COL_COACH_NAME, COL_POD_NUMBER,
+    COL_SHORT_NAME, COL_LONG_NAME, COL_OJS_FILENAME, COL_DIVISION, COL_ADVANCING,
+    SHEET_TEAM_INFO, SHEET_AWARD_DROPDOWNS, SHEET_META, SHEET_AWARD_DEF,
+    SHEET_ROBOT_GAME, SHEET_INNOVATION, SHEET_ROBOT_DESIGN, SHEET_CORE_VALUES, SHEET_RESULTS,
+    TABLE_TEAM_LIST, TABLE_ROBOT_GAME_AWARDS, TABLE_AWARD_DROPDOWNS, TABLE_META, TABLE_AWARD_DEF,
+    TABLE_ROBOT_GAME, TABLE_INNOVATION, TABLE_ROBOT_DESIGN, TABLE_CORE_VALUES, TABLE_TOURNAMENT_DATA,
+    FILE_CLOSING_CEREMONY, AWARD_COLUMN_PREFIX_JUDGED, AWARD_COLUMN_ROBOT_GAME, AWARD_LABEL_PREFIX
+)
 from .excel_operations import add_table_dataframe, _to_int
 from .logger import print_error
 
@@ -147,7 +156,7 @@ def set_up_meta_worksheet(
     tournament: pd.Series,
     book: Workbook,
     config: dict,
-    dir_path: str,
+    tournament_folder: str,
     using_divisions: bool
 ) -> None:
     """Populate the metadata worksheet with tournament information.
@@ -156,15 +165,14 @@ def set_up_meta_worksheet(
         tournament: A pandas Series representing the tournament row
         book: An open openpyxl Workbook object
         config: Dictionary containing season configuration
-        dir_path: Base directory path
+        tournament_folder: Root folder where tournament subfolders are created
         using_divisions: Boolean indicating if divisions are used
     """
     d = tournament[COL_DIVISION] if using_divisions else ""
     logger.info(f"Setting up metadata for {tournament[COL_SHORT_NAME]} {d}")
     
     scriptfile = os.path.join(
-        dir_path,
-        FOLDER_TOURNAMENTS,
+        tournament_folder,
         tournament[COL_SHORT_NAME],
         FILE_CLOSING_CEREMONY
     )

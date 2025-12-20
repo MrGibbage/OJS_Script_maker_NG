@@ -38,8 +38,7 @@ TABLE_ROBOT_DESIGN: str = "RobotDesignResults"
 TABLE_CORE_VALUES: str = "CoreValuesResults"
 TABLE_TOURNAMENT_DATA: str = "TournamentData"
 
-# Folder structure
-FOLDER_TOURNAMENTS: str = "tournaments"
+# File structure
 FILE_CLOSING_CEREMONY: str = "closing_ceremony.html"
 
 # Award columns

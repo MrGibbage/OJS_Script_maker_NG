@@ -105,6 +105,7 @@ Edit `season.json` to configure:
   "season_name": "SUBMERGED",
   "filename": "2025-FLL-Qualifier-Tournaments.xlsx",
   "tournament_template": "2025-Qualifier-Template.xlsm",
+  "tournament_folder": "C:/Users/username/Documents/tournaments",
   "copy_file_list": [
     "script_maker-win.exe",
     "script_maker-mac",
@@ -120,6 +121,15 @@ Edit `season.json` to configure:
 - `season_name`: FLL season theme name
 - `filename`: Excel file with tournament list and assignments
 - `tournament_template`: OJS template file to copy
+- `tournament_folder`: **Root folder where tournament subfolders will be created**
+  - **IMPORTANT**: Use forward slashes `/` in paths (works on all platforms)
+  - Will be created automatically if it doesn't exist
+  - Must be an absolute path (full path from root)
+  - Examples: 
+    - Windows: `"C:/tournaments"` or `"C:/Users/username/Documents/tournaments"`
+    - Mac: `"/Users/username/Documents/tournaments"`
+    - Linux: `"/home/username/tournaments"`
+  - ⚠️ **Don't use backslashes** `\` - they require escaping in JSON as `\\`
 - `copy_file_list`: Additional files to copy to each tournament folder
 
 ## Logs
@@ -161,7 +171,7 @@ grep "Manassas_1" tournament_builder_*.log
 │   └── user_feedback.py           # Progress tracking and validation
 ├── season.json                    # Season configuration
 ├── pyproject.toml                 # Project dependencies
-└── tournaments/                   # Generated output (created by script)
+└── [tournament_folder]/           # Output location (specified in season.json)
     └── [tournament_name]/
         ├── [ojs_file].xlsm
         ├── script_maker-win.exe

@@ -113,7 +113,7 @@ def validate_environment(dir_path: str, config: dict, tournament_file: str, temp
     summary = ValidationSummary()
     
     # Check configuration
-    required_config_keys = ["filename", "tournament_template", "copy_file_list", "season_yr", "season_name"]
+    required_config_keys = ["filename", "tournament_template", "copy_file_list", "season_yr", "season_name", "tournament_folder"]
     missing = [k for k in required_config_keys if k not in config]
     if missing:
         summary.add_error(f"Missing config keys: {', '.join(missing)}")
@@ -195,6 +195,25 @@ def main():
     tournament_file = os.path.join(dir_path, config["filename"])
     template_file = os.path.join(dir_path, config["tournament_template"])
     extrafilelist = config["copy_file_list"]
+    tournament_folder = config["tournament_folder"]
+    
+    # Ensure tournament folder exists
+    if not os.path.exists(tournament_folder):
+        try:
+            os.makedirs(tournament_folder)
+            logger.info(f"Created tournament folder: {tournament_folder}")
+            if not quiet:
+                print_success(f"Created tournament folder: {tournament_folder}")
+        except Exception as e:
+            print_error(
+                logger,
+                f"Could not create tournament folder: {tournament_folder}",
+                e,
+                error_type='permission_denied',
+                context={'filename': tournament_folder}
+            )
+    else:
+        logger.debug(f"Tournament folder exists: {tournament_folder}")
 
     # Run validation (unless skipped)
     if not args.skip_validation:
@@ -370,13 +389,13 @@ def main():
             logger.info(f"Processing {tournament_name}")
         
         # Create folder
-        newpath = os.path.join(dir_path, FOLDER_TOURNAMENTS, row[COL_SHORT_NAME])
+        newpath = os.path.join(tournament_folder, row[COL_SHORT_NAME])
         create_folder(newpath)
         if not quiet:
             progress.update("Folder created")
         
         # Copy files
-        copy_files(row, dir_path, template_file, extrafilelist)
+        copy_files(row, dir_path, template_file, extrafilelist, tournament_folder)
         if not quiet:
             progress.update("Files copied")
 
@@ -388,7 +407,7 @@ def main():
             logger.warning(f"No OJS filename for {row[COL_SHORT_NAME]}, skipping")
             continue
             
-        ojs_path = os.path.join(dir_path, FOLDER_TOURNAMENTS, row[COL_SHORT_NAME], ojs_name)
+        ojs_path = os.path.join(tournament_folder, row[COL_SHORT_NAME], ojs_name)
         
         ojs_book = load_workbook(ojs_path, read_only=False, keep_vba=True)
         
@@ -414,7 +433,7 @@ def main():
             if not quiet:
                 progress.update("Awards configured")
             
-            set_up_meta_worksheet(row, ojs_book, config, dir_path, using_divisions)
+            set_up_meta_worksheet(row, ojs_book, config, tournament_folder, using_divisions)
             if not quiet:
                 progress.update("Metadata added")
             
