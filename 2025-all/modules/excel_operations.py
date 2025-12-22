@@ -45,6 +45,61 @@ def _to_int(val: Any, default: int = 0) -> int:
         return default
 
 
+def check_workbook_is_closed(xlsx_path: str) -> bool:
+    """Check if an Excel workbook is closed by looking for temporary lock files.
+    
+    Excel creates a temporary lock file (starting with ~$) when a workbook is open.
+    
+    Args:
+        xlsx_path: Path to the Excel workbook
+        
+    Returns:
+        True if workbook appears to be closed, False if it's open
+    """
+    if not os.path.exists(xlsx_path):
+        logger.warning(f"Workbook not found: {xlsx_path}")
+        return True
+    
+    directory = os.path.dirname(xlsx_path)
+    filename = os.path.basename(xlsx_path)
+    lock_filename = f"~${filename}"
+    lock_path = os.path.join(directory, lock_filename)
+    
+    is_closed = not os.path.exists(lock_path)
+    
+    if not is_closed:
+        logger.debug(f"Lock file detected for {filename}: {lock_filename}")
+    
+    return is_closed
+
+
+def verify_workbooks_closed(*workbook_paths: str) -> None:
+    """Verify that all specified workbooks are closed.
+    
+    Raises an error if any workbook appears to be open (has a temporary lock file).
+    
+    Args:
+        *workbook_paths: Variable number of paths to Excel workbooks
+        
+    Raises:
+        RuntimeError: If any workbook is currently open
+    """
+    open_workbooks = []
+    
+    for path in workbook_paths:
+        if not check_workbook_is_closed(path):
+            open_workbooks.append(os.path.basename(path))
+    
+    if open_workbooks:
+        files_str = ", ".join(open_workbooks)
+        raise RuntimeError(
+            f"The following workbook(s) must be closed before proceeding: {files_str}\n"
+            "Please close them in Excel and try again."
+        )
+    
+    logger.debug(f"Verified {len(workbook_paths)} workbook(s) are closed")
+
+
 def read_table_as_df(
     xlsx_path: str,
     sheet_name: str,
