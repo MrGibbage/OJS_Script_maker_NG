@@ -28,7 +28,7 @@ from modules.file_operations import (
     copy_files, 
     generate_tournament_config
 )
-from modules.excel_operations import read_table_as_df, read_table_as_dict
+from modules.excel_operations import read_table_as_df, read_table_as_dict, verify_workbooks_closed
 from modules.worksheet_setup import (
     set_up_tapi_worksheet,
     set_up_award_worksheet,
@@ -123,6 +123,14 @@ def validate_environment(dir_path: str, config: dict, tournament_file: str, temp
         summary.add_error(f"Missing config keys: {', '.join(missing)}")
     elif not quiet:
         summary.add_info(f"Configuration valid: {config.get('season_name')} {config.get('season_yr')}")
+    
+    # Check that workbooks are closed
+    try:
+        verify_workbooks_closed(tournament_file, template_file)
+        if not quiet:
+            summary.add_info("Tournament and template files are closed")
+    except RuntimeError as e:
+        summary.add_error(str(e))
     
     # Check tournament file
     if not os.path.exists(tournament_file):
@@ -226,7 +234,10 @@ def main():
         
         validation = validate_environment(dir_path, config, tournament_file, template_file, extrafilelist, quiet=quiet)
         
-        if not quiet:
+        # Always display validation results if there are errors or warnings
+        if validation.has_errors() or validation.warnings:
+            validation.display()
+        elif not quiet:
             validation.display()
         
         if validation.has_errors():

@@ -61,6 +61,8 @@ def check_workbook_is_closed(xlsx_path: str) -> bool:
         return True
     
     directory = os.path.dirname(xlsx_path)
+    if not directory:
+        directory = "."
     filename = os.path.basename(xlsx_path)
     lock_filename = f"~${filename}"
     lock_path = os.path.join(directory, lock_filename)
@@ -69,6 +71,8 @@ def check_workbook_is_closed(xlsx_path: str) -> bool:
     
     if not is_closed:
         logger.debug(f"Lock file detected for {filename}: {lock_filename}")
+    else:
+        logger.debug(f"No lock file found for {filename} at {lock_path}")
     
     return is_closed
 
@@ -91,10 +95,16 @@ def verify_workbooks_closed(*workbook_paths: str) -> None:
             open_workbooks.append(os.path.basename(path))
     
     if open_workbooks:
-        files_str = ", ".join(open_workbooks)
+        if len(open_workbooks) == 1:
+            files_str = open_workbooks[0]
+            message = f"The workbook '{files_str}' is currently open in Excel."
+        else:
+            files_str = "', '".join(open_workbooks)
+            message = f"The following workbooks are currently open in Excel: '{files_str}'"
+        
         raise RuntimeError(
-            f"The following workbook(s) must be closed before proceeding: {files_str}\n"
-            "Please close them in Excel and try again."
+            f"{message}\n"
+            "Please close the file(s) and try again."
         )
     
     logger.debug(f"Verified {len(workbook_paths)} workbook(s) are closed")
