@@ -8,11 +8,14 @@ from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.table import Table
 from openpyxl.utils.cell import coordinate_from_string, column_index_from_string, get_column_letter
-from openpyxl.styles import PatternFill
-from openpyxl.formatting.rule import FormulaRule
+from openpyxl.styles import PatternFill, Font
+from openpyxl.formatting.rule import Rule
+import openpyxl.styles.differential
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.cell_range import CellRange
 from copy import copy as _copy
+from openpyxl.workbook.external_link import ExternalLink
+from openpyxl.workbook.defined_name import DefinedName
 
 from .constants import (
     SHEET_PASSWORD, REQUIRED_COLUMNS,
@@ -145,9 +148,9 @@ def set_up_award_worksheet(
 
     add_table_dataframe(book, SHEET_AWARD_DROPDOWNS, TABLE_ROBOT_GAME_AWARDS, rg_awards_df)
 
-    # Other judged awards
+    # Other judged awards - now with ID column
     j_cols = tournament.filter(regex=f"^{AWARD_COLUMN_PREFIX_JUDGED}")
-    j_awards_df = pd.DataFrame(columns=["Award"])
+    j_awards_df = pd.DataFrame(columns=["Award", "ID"])
     
     for this_col_name, series in j_cols.items():
         count = _to_int(series)
@@ -166,7 +169,7 @@ def set_up_award_worksheet(
                     logger.warning(f"Could not find value for {this_col_name} in column {label_col}")
                     thisValue = None
             
-            j_awards_df.loc[len(j_awards_df)] = [thisValue]
+            j_awards_df.loc[len(j_awards_df)] = [thisValue, this_col_name]
             
     add_table_dataframe(book, SHEET_AWARD_DROPDOWNS, TABLE_AWARD_DROPDOWNS, j_awards_df)
     logger.debug(f"Added {len(rg_awards_df)} robot game awards and {len(j_awards_df)} judged awards")
@@ -345,61 +348,21 @@ def _copy_data_validations_for_range(
             continue
 
 
-def _extend_conditional_formatting_for_range(
-    ws: Worksheet,
-    start_col_letter: str,
-    end_col_letter: str,
-    first_data_row: int,
-    new_end_row: int,
-):
-    """Duplicate conditional formatting rules to new range.
-    
-    Args:
-        ws: Worksheet to modify
-        start_col_letter: Starting column letter
-        end_col_letter: Ending column letter
-        first_data_row: Template data row number
-        new_end_row: New ending row number
-    """
-    try:
-        cf_rules = getattr(ws.conditional_formatting, "_cf_rules", {})
-    except Exception:
-        cf_rules = {}
-
-    new_range = f"{start_col_letter}{first_data_row}:{end_col_letter}{new_end_row}"
-
-    for key, rules in list(cf_rules.items()):
-        try:
-            for sub in str(key).split():
-                try:
-                    cr = CellRange(sub)
-                except Exception:
-                    continue
-                if cr.min_row <= first_data_row <= cr.max_row:
-                    for rule in rules:
-                        try:
-                            ws.conditional_formatting.add(new_range, rule)
-                        except Exception:
-                            continue
-        except Exception:
-            continue
-
-
 def resize_worksheets(
     tournament: pd.Series,
     book: Workbook,
     dfAssignments: pd.DataFrame,
     using_divisions: bool
 ) -> None:
-    """Resize the main result/input tables to match team count.
-
+    """Resize all tables in the workbook based on number of teams.
+    
     Args:
         tournament: A pandas Series representing the tournament row
         book: An open openpyxl Workbook object
         dfAssignments: DataFrame containing team assignments
-        using_divisions: Boolean indicating if divisions are used
+        using_divisions: Whether the tournament uses divisions
     """
-    logger.info(f"Resizing worksheets for {tournament[COL_OJS_FILENAME]}")
+    logger.info(f"Resizing worksheets for {book.properties.title}")
     
     worksheetNames = [
         SHEET_ROBOT_GAME,
@@ -512,17 +475,10 @@ def resize_worksheets(
         except Exception:
             pass
 
-        # Copy data validations and conditional formatting
+        # Copy data validations
         try:
             _copy_data_validations_for_range(
                 ws, start_col_idx, end_col_idx, first_data_row, new_end_row
-            )
-        except Exception:
-            pass
-
-        try:
-            _extend_conditional_formatting_for_range(
-                ws, start_col_letter, end_col_letter, first_data_row, new_end_row
             )
         except Exception:
             pass
@@ -534,97 +490,326 @@ def resize_worksheets(
 
 
 def copy_award_def(tournament: pd.Series, book: Workbook, dfAwardDef: pd.DataFrame) -> None:
-    """Add the award definitions table to the workbook.
+    """Add the award definitions table to the workbook with counts from tournament row.
     
     Args:
         tournament: A pandas Series representing the tournament row
         book: An open openpyxl Workbook object
         dfAwardDef: DataFrame containing award definitions
     """
-    logger.debug("Adding award definitions table")
-    add_table_dataframe(book, SHEET_AWARD_DEF, TABLE_AWARD_DEF, dfAwardDef)
+    logger.debug("Adding award definitions table with tournament counts")
+    
+    # Make a copy to avoid modifying the original
+    dfAwardDef_copy = dfAwardDef.copy()
+    
+    # Drop old count columns if they exist (they've been replaced by 'Count')
+    columns_to_drop = ['D1Count', 'D2Count', 'TournCount']
+    for col in columns_to_drop:
+        if col in dfAwardDef_copy.columns:
+            dfAwardDef_copy = dfAwardDef_copy.drop(columns=[col])
+            logger.debug(f"Dropped obsolete column: {col}")
+    
+    # Replace 0 with empty string for Label* and ScriptTag* columns
+    for col in dfAwardDef_copy.columns:
+        if col.startswith('Label') or col.startswith('ScriptTag'):
+            # Replace 0, 0.0, and '0' with empty string
+            dfAwardDef_copy[col] = dfAwardDef_copy[col].replace([0, 0.0, '0', '0.0'], '')
+            # Also replace NaN with empty string
+            dfAwardDef_copy[col] = dfAwardDef_copy[col].fillna('')
+    
+    # Convert DivAward column from 1/0 to TRUE/FALSE
+    if 'DivAward' in dfAwardDef_copy.columns:
+        dfAwardDef_copy['DivAward'] = dfAwardDef_copy['DivAward'].map({
+            1: 'TRUE', 0: 'FALSE', 
+            True: 'TRUE', False: 'FALSE',
+            '1': 'TRUE', '0': 'FALSE',
+            'TRUE': 'TRUE', 'FALSE': 'FALSE'
+        })
+    
+    # Add Count column if it doesn't exist
+    if 'Count' not in dfAwardDef_copy.columns:
+        dfAwardDef_copy['Count'] = None
+    
+    # Populate Count column from tournament row
+    for idx, row in dfAwardDef_copy.iterrows():
+        column_name = row['ColumnName']
+        
+        # Get the count from the tournament row for this award
+        if column_name in tournament.index:
+            count = tournament.get(column_name, 0)
+            
+            # Convert to int, handling NaN
+            try:
+                count = int(count) if not pd.isna(count) else 0
+            except (ValueError, TypeError):
+                count = 0
+            
+            dfAwardDef_copy.at[idx, 'Count'] = count
+            logger.debug(f"Set Count={count} for award {column_name}")
+        else:
+            # Award column not in tournament row, default to 0
+            dfAwardDef_copy.at[idx, 'Count'] = 0
+            logger.debug(f"Award {column_name} not in tournament row, set Count=0")
+    
+    add_table_dataframe(book, SHEET_AWARD_DEF, TABLE_AWARD_DEF, dfAwardDef_copy)
 
 
-def add_conditional_formats(tournament: pd.Series, book: Workbook) -> None:
-    """Add conditional formatting rules to the Results and Rankings worksheet.
+def add_essential_conditional_formats(book: Workbook, num_teams: int) -> None:
+    """Add essential conditional formatting to Results and Rankings sheet.
     
     Args:
-        tournament: A pandas Series representing the tournament row
         book: An open openpyxl Workbook object
+        num_teams: Number of teams (to determine range)
     """
-    logger.info(f"Adding conditional formats for {tournament[COL_OJS_FILENAME]}")
+    logger.info("Adding essential conditional formatting")
     
-    greenAwardFill = PatternFill(
-        start_color="00B050", end_color="00B050", fill_type="solid"
-    )
-    greenAdvFill = PatternFill(
-        start_color="00FF00", end_color="00FF00", fill_type="solid"
-    )
-    rgGoldFill = PatternFill(
-        start_color="C9B037", end_color="C9B037", fill_type="solid"
-    )
-    rgSilverFill = PatternFill(
-        start_color="D7D7D7", end_color="D7D7D7", fill_type="solid"
-    )
-    rgBronzeFill = PatternFill(
-        start_color="AD8A56", end_color="AD8A56", fill_type="solid"
-    )
-    
-    ws = book[SHEET_RESULTS]
-    
-    # Award completion
-    ws.conditional_formatting.add(
-        "O2",
-        FormulaRule(
-            formula=["COUNTA(AwardList!$A$2:$A$35)=COUNTA($O$3:$O$288)"],
-            stopIfTrue=False,
-            fill=greenAwardFill,
-        ),
-    )
-    
-    # Advancing count
-    ws.conditional_formatting.add(
-        "P2",
-        FormulaRule(
-            formula=['COUNTIF($P:$P,"Yes")=Meta!$B$13'],
-            stopIfTrue=False,
-            fill=greenAdvFill,
-        ),
-    )
-    
-    # Robot Game medals
-    ws.conditional_formatting.add(
-        "J1:J100",
-        FormulaRule(
-            formula=[
-                'AND(J1=1,IF(VLOOKUP("Robot Game 1st Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 1st Place", TRUE, FALSE))'
-            ],
-            stopIfTrue=False,
-            fill=rgGoldFill,
-        ),
-    )
-    ws.conditional_formatting.add(
-        "J1:J100",
-        FormulaRule(
-            formula=[
-                'AND(J1=2,IF(VLOOKUP("Robot Game 2nd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 2nd Place", TRUE, FALSE))'
-            ],
-            stopIfTrue=False,
-            fill=rgSilverFill,
-        ),
-    )
-    ws.conditional_formatting.add(
-        "J1:J100",
-        FormulaRule(
-            formula=[
-                'AND(J1=3,IF(VLOOKUP("Robot Game 3rd Place",AwardList!$C$2:$C$7,1,FALSE)="Robot Game 3rd Place", TRUE, FALSE))'
-            ],
-            stopIfTrue=False,
-            fill=rgBronzeFill,
-        ),
-    )
-    
-    logger.debug("Conditional formatting applied")
+    try:
+        ws = book[SHEET_RESULTS]
+        
+        # Find the TournamentData table
+        table = None
+        for tbl in ws.tables.values():
+            if tbl.name == TABLE_TOURNAMENT_DATA:
+                table = tbl
+                break
+        
+        if not table:
+            logger.warning(f"Table {TABLE_TOURNAMENT_DATA} not found, skipping CF")
+            return
+        
+        from openpyxl.utils import range_boundaries, get_column_letter
+        min_col, min_row, max_col, max_row = range_boundaries(table.ref)
+        
+        # Get count of Robot Game awards from RobotGameAwards table
+        rg_award_count = 0
+        try:
+            rg_ws = book[SHEET_AWARD_DROPDOWNS]
+            rg_table = None
+            for tbl in rg_ws.tables.values():
+                if tbl.name == TABLE_ROBOT_GAME_AWARDS:
+                    rg_table = tbl
+                    break
+            
+            if rg_table:
+                rg_min_col, rg_min_row, rg_max_col, rg_max_row = range_boundaries(rg_table.ref)
+                # Count rows excluding header
+                rg_award_count = rg_max_row - rg_min_row
+                logger.debug(f"Found {rg_award_count} Robot Game awards")
+        except Exception as e:
+            logger.warning(f"Could not count Robot Game awards: {e}")
+        
+        # Define ALL column variables at the beginning
+        # Column J (Robot Game Rank) is the 10th column
+        rg_rank_col = get_column_letter(10)
+        # Column O (Champion's Rank) is the 15th column
+        champ_rank_col = get_column_letter(15)
+        # Column P (Award) is the 16th column
+        award_col = get_column_letter(16)
+        # Column Q (Advance?) is the 17th column
+        advance_col = get_column_letter(17)
+        # Column W is the 23rd column
+        col_w = get_column_letter(23)
+        
+        # Rule 1: Award column header turns bright green when all awards are selected
+        award_list_ws = book[SHEET_AWARD_DROPDOWNS]
+        award_list_table = None
+        for tbl in award_list_ws.tables.values():
+            if tbl.name == TABLE_AWARD_DROPDOWNS:
+                award_list_table = tbl
+                break
+        
+        if award_list_table:
+            list_min_col, list_min_row, list_max_col, list_max_row = range_boundaries(award_list_table.ref)
+            
+            bright_green_fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
+            purple_italic_font = Font(color="800080", italic=True, size=12)
+            
+            # Build the formula WITHOUT the sheet name wrapper - just the range
+            # Excel formula: =COUNTA(AwardListDropdowns!$A$2:$A$7)=COUNTA($P$3:$P$7)
+            award_range = f"${award_col}${min_row + 1}:${award_col}${max_row}"
+            
+            # For the list range, check if sheet name has spaces
+            sheet_name = SHEET_AWARD_DROPDOWNS
+            if ' ' in sheet_name:
+                list_range = f"'{sheet_name}'!$A${list_min_row + 1}:$A${list_max_row}"
+            else:
+                list_range = f"{sheet_name}!$A${list_min_row + 1}:$A${list_max_row}"
+            
+            formula = f'COUNTA({list_range})=COUNTA({award_range})'
+            
+            logger.debug(f"CF Formula: {formula}")
+            
+            header_rule = Rule(type="expression", formula=[formula], stopIfTrue=False)
+            header_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=bright_green_fill, font=purple_italic_font)
+            
+            header_cell = f"{award_col}{min_row}"
+            ws.conditional_formatting.add(header_cell, header_rule)
+            
+            logger.info(f"Added 'all awards selected' CF to {header_cell}")
+        else:
+            logger.warning(f"Table {TABLE_AWARD_DROPDOWNS} not found, skipping Award column CF")
+        
+        # Rule 2: Highlight duplicate award selections in bright red
+        bright_red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+        purple_italic_font = Font(color="800080", italic=True, size=11)
+        
+        award_data_range = f"{award_col}{min_row + 1}:{award_col}{max_row}"
+        duplicate_formula = f'COUNTIF(${award_col}${min_row + 1}:${award_col}${max_row},{award_col}{min_row + 1})>1'
+        
+        duplicate_rule = Rule(type="expression", formula=[duplicate_formula], stopIfTrue=False)
+        duplicate_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=bright_red_fill, font=purple_italic_font)
+        
+        ws.conditional_formatting.add(award_data_range, duplicate_rule)
+        
+        logger.info(f"Added duplicate detection CF to {award_data_range}")
+        logger.debug(f"Duplicate CF Formula: {duplicate_formula}")
+        
+        # Rule 3: Highlight entire row in yellow when award is selected
+        # Yellow fill (#FFFF99)
+        yellow_fill = PatternFill(start_color="FFFF99", end_color="FFFF99", fill_type="solid")
+        
+        # Apply to entire data range of the table (all columns, all data rows)
+        start_col_letter = get_column_letter(min_col)
+        end_col_letter = get_column_letter(max_col)
+        entire_data_range = f"{start_col_letter}{min_row + 1}:{end_col_letter}{max_row}"
+        
+        # Formula: $P3<>"" (checks if Award column is not empty)
+        # Use absolute column reference for Award column but relative row reference
+        row_highlight_formula = f'${award_col}{min_row + 1}<>""'
+        
+        row_highlight_rule = Rule(type="expression", formula=[row_highlight_formula], stopIfTrue=False)
+        row_highlight_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=yellow_fill)
+        
+        ws.conditional_formatting.add(entire_data_range, row_highlight_rule)
+        
+        logger.info(f"Added row highlighting CF to {entire_data_range}")
+        logger.debug(f"Row highlight CF Formula: {row_highlight_formula}")
+        
+        # Rule 4: Highlight Champion's Rank when in top N (advancing teams)
+        # Medium blue fill with white text
+        medium_blue_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        white_font = Font(color="FFFFFF")
+        
+        # Apply to Champion's Rank column data cells
+        champ_rank_range = f"{champ_rank_col}{min_row + 1}:{champ_rank_col}{max_row}"
+        
+        # Formula: Check if Champion's Rank <= value in Q1 (advancing count)
+        # Use absolute reference for Q1, relative reference for current cell
+        # $O3<=$Q$1 means: if this cell's rank is <= advancing count
+        champ_rank_formula = f'{champ_rank_col}{min_row + 1}<=${advance_col}$1'
+        
+        champ_rank_rule = Rule(type="expression", formula=[champ_rank_formula], stopIfTrue=False)
+        champ_rank_rule.dxf = openpyxl.styles.differential.DifferentialStyle(
+            fill=medium_blue_fill, 
+            font=white_font
+        )
+        
+        ws.conditional_formatting.add(champ_rank_range, champ_rank_rule)
+        
+        logger.info(f"Added Champion's Rank highlighting CF to {champ_rank_range}")
+        logger.debug(f"Champion's Rank CF Formula: {champ_rank_formula}")
+        
+        # Rule 5: Highlight Robot Game Rank - Gold for 1st
+        gold_fill = PatternFill(start_color="FFD700", end_color="FFD700", fill_type="solid")
+        
+        rg_rank_range = f"{rg_rank_col}{min_row + 1}:{rg_rank_col}{max_row}"
+        
+        # Gold for rank = 1
+        gold_formula = f'{rg_rank_col}{min_row + 1}=1'
+        gold_rule = Rule(type="expression", formula=[gold_formula], stopIfTrue=False)
+        gold_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=gold_fill)
+        ws.conditional_formatting.add(rg_rank_range, gold_rule)
+        logger.debug(f"Added Robot Game Gold CF: {gold_formula}")
+        
+        # Rule 6: Silver for 2nd place (only if we have 2+ awards)
+        if rg_award_count >= 2:
+            silver_fill = PatternFill(start_color="C0C0C0", end_color="C0C0C0", fill_type="solid")
+            silver_formula = f'{rg_rank_col}{min_row + 1}=2'
+            silver_rule = Rule(type="expression", formula=[silver_formula], stopIfTrue=False)
+            silver_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=silver_fill)
+            ws.conditional_formatting.add(rg_rank_range, silver_rule)
+            logger.debug(f"Added Robot Game Silver CF: {silver_formula}")
+        
+        # Rule 7: Bronze for 3rd+ place (only if we have 3+ awards)
+        if rg_award_count >= 3:
+            bronze_fill = PatternFill(start_color="CD7F32", end_color="CD7F32", fill_type="solid")
+            # If exactly 3 awards, only highlight rank 3
+            # If 4+ awards, highlight ranks 3, 4, 5, etc.
+            bronze_formula = f'{rg_rank_col}{min_row + 1}>=3'
+            bronze_rule = Rule(type="expression", formula=[bronze_formula], stopIfTrue=False)
+            bronze_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=bronze_fill)
+            ws.conditional_formatting.add(rg_rank_range, bronze_rule)
+            logger.debug(f"Added Robot Game Bronze CF: {bronze_formula}")
+        
+        # Rule 8: Highlight Q1 and Q2 (Advance? header and count) when all advancing teams selected
+        bright_green_fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
+        
+        # Apply to Q1 (header) and Q2 (count cell)
+        # Formula: COUNTIF($Q$3:$Q$max,"Yes")=$Q$1
+        # This counts "Yes" values and compares to the advancing count in Q1
+        advance_header_range = f"{advance_col}1:{advance_col}2"
+        advance_count_formula = f'COUNTIF(${advance_col}${min_row + 1}:${advance_col}${max_row},"Yes")=${advance_col}$1'
+        
+        advance_header_rule = Rule(type="expression", formula=[advance_count_formula], stopIfTrue=False)
+        advance_header_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=bright_green_fill)
+        
+        ws.conditional_formatting.add(advance_header_range, advance_header_rule)
+        
+        logger.info(f"Added Advance? header highlighting CF to {advance_header_range}")
+        logger.debug(f"Advance header CF Formula: {advance_count_formula}")
+        
+        # Rule 9: Highlight W1 when correct advancing count AND one Alt team selected
+        bright_green_fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
+        
+        # Apply to W1 only
+        w1_cell = f"{col_w}1"
+        
+        # Formula: Check two conditions:
+        # 1. COUNTIF($Q$3:$Q$max,"Yes")=$Q$1 (correct number of Yes)
+        # 2. COUNTIF($Q$3:$Q$max,"Alt")=1 (exactly one Alt)
+        w1_formula = f'AND(COUNTIF(${advance_col}${min_row + 1}:${advance_col}${max_row},"Yes")=${advance_col}$1,COUNTIF(${advance_col}${min_row + 1}:${advance_col}${max_row},"Alt")=1)'
+        
+        w1_rule = Rule(type="expression", formula=[w1_formula], stopIfTrue=False)
+        w1_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=bright_green_fill)
+        
+        ws.conditional_formatting.add(w1_cell, w1_rule)
+        
+        logger.info(f"Added W1 Alt team highlighting CF to {w1_cell}")
+        logger.debug(f"W1 CF Formula: {w1_formula}")
+        
+        # Rule 10: Highlight "Yes" cells in Advance? column with medium blue
+        medium_blue_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        white_font = Font(color="FFFFFF")
+        
+        advance_data_range = f"{advance_col}{min_row + 1}:{advance_col}{max_row}"
+        
+        # Formula: Check if cell contains "Yes"
+        yes_formula = f'{advance_col}{min_row + 1}="Yes"'
+        yes_rule = Rule(type="expression", formula=[yes_formula], stopIfTrue=False)
+        yes_rule.dxf = openpyxl.styles.differential.DifferentialStyle(
+            fill=medium_blue_fill,
+            font=white_font
+        )
+        ws.conditional_formatting.add(advance_data_range, yes_rule)
+        logger.debug(f"Added 'Yes' highlighting CF: {yes_formula}")
+        
+        # Rule 11: Highlight "Alt" cells in Advance? column with light blue
+        light_blue_fill = PatternFill(start_color="9BC2E6", end_color="9BC2E6", fill_type="solid")
+        
+        # Formula: Check if cell contains "Alt"
+        alt_formula = f'{advance_col}{min_row + 1}="Alt"'
+        alt_rule = Rule(type="expression", formula=[alt_formula], stopIfTrue=False)
+        alt_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=light_blue_fill)
+        ws.conditional_formatting.add(advance_data_range, alt_rule)
+        logger.debug(f"Added 'Alt' highlighting CF: {alt_formula}")
+        
+        logger.info(f"Added Robot Game rank highlighting (gold/silver/bronze)")
+        logger.info(f"Added Advance? column highlighting (Yes/Alt)")
+        
+    except Exception as e:
+        logger.warning(f"Could not add conditional formatting: {e}")
+        import traceback
+        logger.debug(traceback.format_exc())
 
 
 def protect_worksheets(tournament: pd.Series, book: Workbook) -> None:
@@ -663,3 +848,122 @@ def hide_worksheets(tournament: pd.Series, book: Workbook) -> None:
             ws = book[sheetname]
             ws.sheet_state = "hidden"
             logger.debug(f"Hid worksheet: {sheetname}")
+
+
+def remove_external_links(book: Workbook) -> None:
+    """Remove all external workbook links from the workbook.
+    
+    Args:
+        book: An open openpyxl Workbook object
+    """
+    logger.debug("Checking for external workbook links")
+    
+    removed_count = 0
+    
+    # Method 1: Check _external_links attribute
+    if hasattr(book, '_external_links') and book._external_links:
+        original_count = len(book._external_links)
+        logger.debug(f"Found {original_count} external link(s) in _external_links")
+        book._external_links = []
+        removed_count += original_count
+    
+    # Method 2: Check defined names (which can contain external references)
+    if hasattr(book, 'defined_names'):
+        names_to_remove = []
+        
+        for name_obj in book.defined_names.values():
+            if hasattr(name_obj, 'value') and name_obj.value:
+                # Check for external reference pattern: [filename.xlsx]
+                if '[' in str(name_obj.value) and ']' in str(name_obj.value):
+                    logger.debug(f"Found external reference in defined name: {name_obj.name} = {name_obj.value}")
+                    names_to_remove.append(name_obj.name)
+                    removed_count += 1
+        
+        for name in names_to_remove:
+            del book.defined_names[name]
+    
+    # Method 3: Fix conditional formatting formulas that reference old sheet names
+    # ONLY replace "AwardList!" if it's NOT already "AwardListDropdowns!"
+    try:
+        for ws in book.worksheets:
+            if hasattr(ws, 'conditional_formatting'):
+                for cf_range in list(ws.conditional_formatting._cf_rules.keys()):
+                    rules = ws.conditional_formatting._cf_rules[cf_range]
+                    
+                    for rule in rules:
+                        if hasattr(rule, 'formula') and rule.formula:
+                            for i, formula in enumerate(rule.formula):
+                                if formula:
+                                    formula_str = str(formula)
+                                    # Only replace if it has the OLD sheet name, not the new one
+                                    if 'AwardList!' in formula_str and 'AwardListDropdowns!' not in formula_str:
+                                        new_formula = formula_str.replace('AwardList!', 'AwardListDropdowns!')
+                                        rule.formula[i] = new_formula
+                                        logger.debug(f"Fixed CF formula: {formula} -> {new_formula}")
+                
+    except Exception as e:
+        logger.debug(f"Could not update conditional formatting: {e}")
+    
+    if removed_count > 0:
+        logger.info(f"Removed {removed_count} external reference(s)")
+    else:
+        logger.debug("No external workbook links found")
+
+
+def fix_named_ranges(book: Workbook) -> None:
+    """Recreate named ranges that reference renamed sheets.
+    
+    Args:
+        book: An open openpyxl Workbook object
+    """
+    logger.debug("Fixing named ranges")
+    
+    try:
+        # Fix the "Awards" named range to point to AwardListDropdowns sheet
+        
+        # First, remove the old "Awards" named range if it exists
+        if "Awards" in book.defined_names:
+            del book.defined_names["Awards"]
+            logger.debug("Removed old 'Awards' named range")
+        
+        # Find the AwardListDropdowns table to get the correct range
+        if SHEET_AWARD_DROPDOWNS in book.sheetnames:
+            ws = book[SHEET_AWARD_DROPDOWNS]
+            
+            # Find the table
+            table = None
+            for tbl in ws.tables.values():
+                if tbl.name == TABLE_AWARD_DROPDOWNS:
+                    table = tbl
+                    break
+            
+            if table:
+                from openpyxl.utils import range_boundaries
+                min_col, min_row, max_col, max_row = range_boundaries(table.ref)
+                
+                # Assuming "Award" is the first column (column A)
+                # Create named range pointing to the Award column (excluding header)
+                award_range = f"'{SHEET_AWARD_DROPDOWNS}'!$A${min_row + 1}:$A${max_row}"
+                
+                # Create the named range - use dictionary assignment, not append
+                defn = DefinedName("Awards", attr_text=award_range)
+                book.defined_names["Awards"] = defn
+                
+                logger.info(f"Created 'Awards' named range: {award_range}")
+            else:
+                logger.warning(f"Table {TABLE_AWARD_DROPDOWNS} not found")
+        else:
+            logger.warning(f"Sheet {SHEET_AWARD_DROPDOWNS} not found")
+        
+        # Also fix any other named ranges that reference "AwardList" (old sheet name)
+        # Iterate using the correct method for DefinedNameDict
+        for name_key, name_obj in book.defined_names.items():
+            if hasattr(name_obj, 'value') and name_obj.value and 'AwardList!' in str(name_obj.value):
+                old_value = name_obj.value
+                name_obj.value = str(name_obj.value).replace('AwardList!', 'AwardListDropdowns!')
+                logger.debug(f"Updated named range '{name_obj.name}': {old_value} -> {name_obj.value}")
+    
+    except Exception as e:
+        logger.warning(f"Could not fix named ranges: {e}")
+        import traceback
+        logger.debug(traceback.format_exc())

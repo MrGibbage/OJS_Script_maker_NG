@@ -5,7 +5,7 @@ SHEET_PASSWORD: str = "skip"
 CONFIG_FILENAME: str = "season.json"
 
 # Column names
-COL_TEAM_NUMBER: str = "Team #"
+COL_TEAM_NUMBER: str = "Team #"  # Revert back to "Team #"
 COL_TEAM_NAME: str = "Team Name"
 COL_COACH_NAME: str = "Coach Name"
 COL_POD_NUMBER: str = "Pod Number"
@@ -17,6 +17,9 @@ COL_ADVANCING: str = "ADV"
 COL_DATE: str = "Date"
 COL_COLUMN_NAME: str = "ColumnName"
 COL_DIV_AWARD: str = "DivAward"
+COL_SCRIPT_TAG_D1: str = "ScriptTagD1"
+COL_SCRIPT_TAG_D2: str = "ScriptTagD2"
+COL_SCRIPT_TAG_NODIV: str = "ScriptTagNoDiv"
 
 # Sheet names
 SHEET_TEAM_INFO: str = "Team and Program Information"
@@ -61,5 +64,5 @@ REQUIRED_COLUMNS = {
     "InnovationProjectResults": ["Team #"],
     "RobotDesignResults": ["Team #"],
     "CoreValuesResults": ["Team #"],
-    "TournamentData": ["Team #"],
+    "TournamentData": ["Team #"],  # Changed from "Team Number"
 }

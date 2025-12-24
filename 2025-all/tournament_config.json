@@ -1,0 +1,98 @@
+{
+  "INFO": {
+    "season_name": "Unearthed",
+    "season_year": "2025",
+    "tournament_short_name": "Norfolk",
+    "tournament_long_name": "Norfolk 2025 Unearthed Qualifier Tournament",
+    "tournament_date": "2025-11-15 00:00:00",
+    "using_divisions": true,
+    "ojs_filenames": [
+      "2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div1.xlsm",
+      "2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div2.xlsm"
+    ]
+  },
+  "AWARDS": [
+    {
+      "ID": "J_AWD_CHAMP",
+      "Name": "Champions",
+      "DivAwd": true,
+      "Labels": [
+        "Champions 1st Place",
+        "Champions 2nd Place",
+        "Champions 3rd Place"
+      ],
+      "D1_count": 1,
+      "ScriptTagD1": "J_AWD_CHAMP_D1",
+      "ScriptTagD2": "J_AWD_CHAMP_D2",
+      "D2_count": 2
+    },
+    {
+      "ID": "J_AWD_RD",
+      "Name": "Robot Design",
+      "DivAwd": true,
+      "Labels": [
+        "Robot Design 1st Place",
+        "Robot Design 2nd Place",
+        "Robot Design 3rd Place"
+      ],
+      "D1_count": 1,
+      "ScriptTagD1": "J_AWD_RD_D1",
+      "ScriptTagD2": "J_AWD_RD_D2",
+      "D2_count": 1
+    },
+    {
+      "ID": "J_AWD_IP",
+      "Name": "Innovation Project",
+      "DivAwd": true,
+      "Labels": [
+        "Innovation Project 1st Place",
+        "Innovation Project 2nd Place",
+        "Innovation Project 3rd Place"
+      ],
+      "D1_count": 1,
+      "ScriptTagD1": "J_AWD_IP_D1",
+      "ScriptTagD2": "J_AWD_IP_D2",
+      "D2_count": 1
+    },
+    {
+      "ID": "J_AWD_CV",
+      "Name": "Core Values",
+      "DivAwd": true,
+      "Labels": [
+        "Core Values 1st Place",
+        "Core Values 2nd Place",
+        "Core Values 3rd Place"
+      ],
+      "D1_count": 1,
+      "ScriptTagD1": "J_AWD_CV_D1",
+      "ScriptTagD2": "J_AWD_CV_D2",
+      "D2_count": 1
+    },
+    {
+      "ID": "P_AWD_RG",
+      "Name": "Robot Game",
+      "DivAwd": true,
+      "Labels": [
+        "Robot Game 1st Place",
+        "Robot Game 2nd Place",
+        "Robot Game 3rd Place"
+      ],
+      "D1_count": 1,
+      "ScriptTagD1": "P_AWD_RG_D1",
+      "ScriptTagD2": "P_AWD_RG_D2",
+      "D2_count": 2
+    },
+    {
+      "ID": "J_AWD_Judges",
+      "Name": "Judges",
+      "DivAwd": false,
+      "Labels": [
+        "Judges 1",
+        "Judges 2",
+        "Judges 3"
+      ],
+      "TournCount": 2,
+      "ScriptTagNoDiv": "J_AWD_Judges"
+    }
+  ]
+}

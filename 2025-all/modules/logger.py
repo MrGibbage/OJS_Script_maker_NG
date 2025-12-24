@@ -2,10 +2,14 @@
 
 import logging
 import sys
+import glob
 from pathlib import Path
 from datetime import datetime
 from colorama import Fore, Style
 from .user_feedback import get_error_recovery_suggestions
+from typing import Optional
+import os
+import copy
 
 
 class ColoredFormatter(logging.Formatter):
@@ -20,24 +24,69 @@ class ColoredFormatter(logging.Formatter):
     }
     
     def format(self, record):
-        # Add color to the level name
-        levelname = record.levelname
+        # Make a copy of the record to avoid modifying the original
+        record_copy = copy.copy(record)
+        
+        # Add color to the level name in the COPY only
+        levelname = record_copy.levelname
         if levelname in self.COLORS:
-            record.levelname = f"{self.COLORS[levelname]}{levelname}{Style.RESET_ALL}"
-        return super().format(record)
+            record_copy.levelname = f"{self.COLORS[levelname]}{levelname}{Style.RESET_ALL}"
+        
+        return super().format(record_copy)
 
 
-def setup_logger(name: str = "ojs_builder", log_dir: str | None = None, debug: bool = False) -> logging.Logger:
-    """Configure and return a logger with both console and file handlers.
+def cleanup_old_logs(log_dir: str, log_prefix: str, current_log: str, keep_count: int = 1):
+    """Delete old log files, keeping only the most recent ones.
     
     Args:
-        name: Name of the logger
-        log_dir: Directory to store log files (defaults to script directory)
-        debug: If True, set log level to DEBUG; otherwise INFO
-        
-    Returns:
-        Configured logger instance
+        log_dir: Directory containing log files
+        log_prefix: Prefix of log files (e.g., "ojs_builder" or "ceremony_generator")
+        current_log: Full path to the current log file (to exclude from deletion)
+        keep_count: Number of most recent log files to keep (in addition to current)
     """
+    try:
+        # Normalize paths for comparison
+        log_dir = os.path.normpath(log_dir)
+        current_log = os.path.normpath(current_log)
+        
+        log_pattern = os.path.join(log_dir, f"{log_prefix}_*.log")
+        log_files = glob.glob(log_pattern)
+        
+        # Normalize all found log file paths
+        log_files = [os.path.normpath(f) for f in log_files]
+        
+        # Remove current log from the list
+        log_files = [f for f in log_files if f != current_log]
+        
+        # If we want to keep only the current log (keep_count=1), delete ALL old logs
+        if keep_count <= 1:
+            files_to_delete = log_files
+        else:
+            # Keep (keep_count - 1) old logs
+            if len(log_files) <= (keep_count - 1):
+                return  # Nothing to delete
+            
+            # Sort by modification time (oldest first)
+            log_files.sort(key=os.path.getmtime)
+            
+            # Delete all except the most recent (keep_count - 1)
+            files_to_delete = log_files[:-(keep_count - 1)]
+        
+        # Delete the files
+        for log_file in files_to_delete:
+            try:
+                os.remove(log_file)
+            except (PermissionError, FileNotFoundError):
+                pass  # Skip if locked or already gone
+            except Exception:
+                pass
+                
+    except Exception:
+        pass  # Silently fail
+
+
+def setup_logger(name: str = "ojs_builder", debug: bool = False, log_dir: Optional[str] = None) -> logging.Logger:
+    """Configure and return a logger with both console and file handlers."""
     logger = logging.getLogger(name)
     
     # Set level
@@ -48,40 +97,42 @@ def setup_logger(name: str = "ojs_builder", log_dir: str | None = None, debug: b
     if logger.handlers:
         return logger
     
-    # Console handler with color
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(level)
-    console_format = ColoredFormatter(
-        '%(levelname)s: %(message)s'
-    )
-    console_handler.setFormatter(console_format)
-    logger.addHandler(console_handler)
-    
-    # File handler (no color, more detail)
-    if log_dir:
-        log_path = Path(log_dir)
-    else:
-        log_path = Path.cwd()
-    
-    log_path.mkdir(parents=True, exist_ok=True)
+    # File handler FIRST (gets record before console formatter modifies it)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = log_path / f"tournament_builder_{timestamp}.log"
+    log_file = f"{name}_{timestamp}.log"
     
-    file_handler = logging.FileHandler(log_file, encoding='utf-8')
-    file_handler.setLevel(logging.DEBUG)  # Always log DEBUG to file
-    file_format = logging.Formatter(
+    if log_dir:
+        log_path = Path(log_dir) / log_file
+    else:
+        log_path = Path.cwd() / log_file
+    
+    file_handler = logging.FileHandler(log_path, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    
+    # Plain formatter (no color codes) for file
+    plain_format = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
-    file_handler.setFormatter(file_format)
+    file_handler.setFormatter(plain_format)
     logger.addHandler(file_handler)
     
-    logger.info(f"Logging to file: {log_file}")
+    # Console handler SECOND (with color)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(level)
+    console_format = ColoredFormatter('%(levelname)s: %(message)s')
+    console_handler.setFormatter(console_format)
+    logger.addHandler(console_handler)
+    
+    logger.info(f"Logging to file: {log_path}")
+    
+    # Cleanup old log files
+    cleanup_old_logs(str(log_path.parent), name, str(log_path), keep_count=1)
     
     return logger
 
 
-def print_error(logger: logging.Logger, errormsg: str, e: Exception | None = None, error_type: str | None = None, context: dict | None = None) -> None:
+def print_error(logger: logging.Logger, errormsg: str, e: Optional[Exception] = None, error_type: Optional[str] = None, context: Optional[dict] = None) -> None:
     """Log an error message with recovery suggestions and exit the program.
     
     Args:

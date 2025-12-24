@@ -173,218 +173,220 @@ def copy_files(
 
 
 def generate_tournament_config(
-    tournament_row: pd.Series,
+    tournament: pd.Series,
     config: dict,
     dfAwardDef: pd.DataFrame,
     using_divisions: bool,
     tournament_folder: str,
     quiet: bool = False
-) -> tuple[bool, str, list[str]]:
+) -> tuple[bool, str, list]:
     """Generate or update tournament_config.json file for a tournament.
     
-    Creates a JSON configuration file in the tournament folder with tournament
-    metadata and settings. For tournaments with divisions, updates existing file
-    by appending to ojs_filenames array. Validates that tournament-level award
-    counts match between divisions.
-    
     Args:
-        tournament_row: Row from dfTournaments with tournament data
-        config: Season configuration dictionary (from season.json)
-        dfAwardDef: Award definitions dataframe
-        using_divisions: Whether season is using divisions
-        tournament_folder: Root folder where tournament subfolders are created
+        tournament: Tournament row from dfTournaments
+        config: Season configuration dictionary
+        dfAwardDef: Award definitions DataFrame
+        using_divisions: Whether this season uses divisions
+        tournament_folder: Root tournament folder path
         quiet: If True, suppress info messages
         
     Returns:
-        Tuple of (mismatch_detected: bool, tournament_name: str, award_count_mismatches: list[str])
-        mismatch_detected is True if JSON existed with using_divisions=False
-        award_count_mismatches contains descriptions of any award count mismatches found
-        
-    Raises:
-        Exits via print_error if critical errors occur
+        Tuple of (mismatch_detected, tournament_name, award_mismatches)
     """
-    from colorama import Fore, Style
+    from .constants import (
+        COL_SHORT_NAME, COL_LONG_NAME, COL_DIVISION, COL_OJS_FILENAME, COL_DATE,
+        COL_COLUMN_NAME, COL_DIV_AWARD, COL_SCRIPT_TAG_D1, COL_SCRIPT_TAG_D2, 
+        COL_SCRIPT_TAG_NODIV, AWARD_COLUMN_PREFIX_JUDGED, AWARD_COLUMN_ROBOT_GAME,
+        AWARD_LABEL_PREFIX
+    )
     
-    tournament_short_name = tournament_row[COL_SHORT_NAME]
-    tournament_name = tournament_short_name
-    config_file_path = os.path.join(tournament_folder, tournament_short_name, "tournament_config.json")
+    logger.info(f"Generating tournament config for {tournament[COL_SHORT_NAME]}")
     
-    logger.debug(f"Generating config for: {tournament_short_name}")
+    tourn_short = tournament[COL_SHORT_NAME]
+    config_path = os.path.join(tournament_folder, tourn_short, 'tournament_config.json')
     
-    # Check if config file already exists
-    existing_config = None
-    mismatch_detected = False
-    award_count_mismatches = []
+    # Track missing script tags for warning summary
+    missing_tags_warnings = []
     
-    if os.path.exists(config_file_path):
-        try:
-            with open(config_file_path, "r", encoding="utf-8") as f:
-                existing_config = json.load(f)
-            logger.debug(f"Found existing config file: {config_file_path}")
-        except json.JSONDecodeError as e:
-            print_error(
-                logger,
-                f"Existing tournament_config.json is invalid JSON: {config_file_path}",
-                e,
-                error_type='invalid_json',
-                context={'filename': 'tournament_config.json'}
-            )
-        except Exception as e:
-            print_error(
-                logger,
-                f"Could not read existing tournament_config.json: {config_file_path}",
-                e
-            )
+    # Check if config already exists (for second division)
+    if os.path.exists(config_path):
+        logger.debug(f"Config exists, will update: {config_path}")
+        with open(config_path, 'r', encoding='utf-8') as f:
+            existing_config = json.load(f)
+    else:
+        existing_config = None
     
-    # Handle division mismatch scenario
-    if existing_config:
-        if not existing_config.get("using_divisions", False):
-            # Mismatch: JSON says no divisions, but we're seeing it again (must be division 2)
-            mismatch_detected = True
-            warning_msg = (
-                f"⚠ DIVISION MISMATCH for {tournament_short_name}: "
-                f"tournament_config.json has using_divisions=false, but tournament appears to use divisions. "
-                f"Changing to using_divisions=true. Check season workbook settings if this is unexpected."
-            )
-            print(f"\n{Fore.YELLOW}{warning_msg}{Style.RESET_ALL}\n")
-            logger.warning(warning_msg)
-            
-            # Update existing config: change using_divisions and append filename
-            existing_config["using_divisions"] = True
-            existing_config["ojs_filenames"].append(tournament_row[COL_OJS_FILENAME])
-            
-            try:
-                with open(config_file_path, "w", encoding="utf-8") as f:
-                    json.dump(existing_config, f, indent=2)
-                logger.info(f"✓ Updated tournament_config.json (mismatch corrected): {config_file_path}")
-                if not quiet:
-                    print(f"{Fore.GREEN}✓ Updated tournament config (division mismatch corrected){Style.RESET_ALL}")
-            except Exception as e:
-                print_error(
-                    logger,
-                    f"Could not write updated tournament_config.json: {config_file_path}",
-                    e,
-                    error_type='file_write',
-                    context={'filename': 'tournament_config.json'}
-                )
-            
-            return (mismatch_detected, tournament_name, award_count_mismatches)
+    # Build INFO section (only on first pass)
+    if existing_config is None:
+        # Get tournament date
+        tourn_date = tournament.get(COL_DATE, "")
+        if pd.isna(tourn_date):
+            tourn_date = ""
         else:
-            # Normal division 2 scenario: append filename and validate award counts
-            
-            # For using_divisions tournaments, validate tournament-level award counts match
-            if using_divisions and "tournament_award_counts" in existing_config:
-                stored_counts = existing_config["tournament_award_counts"]
-                
-                for award_col, div1_count in stored_counts.items():
-                    # Get the count from current row (division 2)
-                    current_count = tournament_row.get(award_col, 0)
-                    if pd.isna(current_count):
-                        current_count = 0
-                    else:
-                        current_count = int(current_count)
-                    
-                    # Compare counts
-                    if current_count != div1_count:
-                        mismatch_msg = f"{award_col}: Div1={div1_count}, Div2={current_count}"
-                        award_count_mismatches.append(mismatch_msg)
-                        warning_msg = (
-                            f"⚠ AWARD COUNT MISMATCH for {tournament_short_name}: "
-                            f"{award_col} has Div1={div1_count} but Div2={current_count}. "
-                            f"Tournament-level awards should have the same count. Check season workbook."
-                        )
-                        print(f"\n{Fore.YELLOW}{warning_msg}{Style.RESET_ALL}\n")
-                        logger.warning(warning_msg)
-            
-            existing_config["ojs_filenames"].append(tournament_row[COL_OJS_FILENAME])
-            
-            try:
-                with open(config_file_path, "w", encoding="utf-8") as f:
-                    json.dump(existing_config, f, indent=2)
-                logger.info(f"✓ Updated tournament_config.json (added division): {config_file_path}")
-                if not quiet:
-                    print(f"{Fore.GREEN}✓ Updated tournament config (added division){Style.RESET_ALL}")
-            except Exception as e:
-                print_error(
-                    logger,
-                    f"Could not write updated tournament_config.json: {config_file_path}",
-                    e,
-                    error_type='file_write',
-                    context={'filename': 'tournament_config.json'}
+            # Convert to string if it's a datetime
+            tourn_date = str(tourn_date)
+        
+        # Determine OJS filenames for this tournament
+        if using_divisions:
+            # Get both division rows for this tournament
+            ojs_filenames = []
+            div1_filename = tournament.get(COL_OJS_FILENAME)
+            if div1_filename and not pd.isna(div1_filename):
+                ojs_filenames.append(div1_filename)
+        else:
+            ojs_filenames = [tournament[COL_OJS_FILENAME]]
+        
+        info_section = {
+            "season_name": config.get("season_name", ""),
+            "season_year": config.get("season_yr", ""),
+            "tournament_short_name": tourn_short,
+            "tournament_long_name": tournament.get(COL_LONG_NAME, ""),
+            "tournament_date": tourn_date,
+            "using_divisions": using_divisions,
+            "ojs_filenames": ojs_filenames
+        }
+    else:
+        # Keep existing INFO, but add this division's OJS filename if not present
+        info_section = existing_config.get("INFO", {})
+        current_ojs = tournament.get(COL_OJS_FILENAME)
+        if current_ojs and not pd.isna(current_ojs):
+            if current_ojs not in info_section.get("ojs_filenames", []):
+                info_section.setdefault("ojs_filenames", []).append(current_ojs)
+    
+    # Build AWARDS section - use dictionary for easier merging
+    awards_dict = {}
+    award_mismatches = []
+    mismatch_detected = False
+    
+    # Load existing awards if updating
+    if existing_config:
+        for award in existing_config.get("AWARDS", []):
+            awards_dict[award["ID"]] = award
+    
+    # Get current division (if applicable)
+    current_div = tournament.get(COL_DIVISION, "") if using_divisions else ""
+    
+    # Process all award columns from this tournament row
+    award_columns = [col for col in tournament.index if col.startswith(AWARD_COLUMN_PREFIX_JUDGED) or col == AWARD_COLUMN_ROBOT_GAME]
+    
+    for award_col in award_columns:
+        award_count = tournament.get(award_col, 0)
+        
+        # Skip if no allocation
+        try:
+            award_count = int(award_count) if not pd.isna(award_count) else 0
+        except (ValueError, TypeError):
+            award_count = 0
+        
+        if award_count == 0:
+            continue
+        
+        # Get award metadata from AwardDef
+        award_def_row = dfAwardDef[dfAwardDef[COL_COLUMN_NAME] == award_col]
+        
+        if award_def_row.empty:
+            logger.warning(f"Award {award_col} not found in AwardDef table")
+            continue
+        
+        award_name = award_def_row.iloc[0].get("Name", "")
+        div_award_raw = award_def_row.iloc[0].get(COL_DIV_AWARD, False)
+        
+        # Get script tags from AwardDef
+        script_tag_d1 = award_def_row.iloc[0].get(COL_SCRIPT_TAG_D1, "")
+        script_tag_d2 = award_def_row.iloc[0].get(COL_SCRIPT_TAG_D2, "")
+        script_tag_nodiv = award_def_row.iloc[0].get(COL_SCRIPT_TAG_NODIV, "")
+        
+        # Convert empty/NaN to empty string
+        script_tag_d1 = "" if pd.isna(script_tag_d1) else str(script_tag_d1).strip()
+        script_tag_d2 = "" if pd.isna(script_tag_d2) else str(script_tag_d2).strip()
+        script_tag_nodiv = "" if pd.isna(script_tag_nodiv) else str(script_tag_nodiv).strip()
+        
+        # Get Labels from AwardDef
+        label_columns = [col for col in dfAwardDef.columns if col.startswith(AWARD_LABEL_PREFIX)]
+        labels = []
+        for label_col in sorted(label_columns):  # Label1, Label2, Label3, etc.
+            value = award_def_row.iloc[0].get(label_col)
+            if pd.notna(value) and str(value).strip():
+                labels.append(str(value).strip())
+        
+        # Convert DivAward to boolean
+        if isinstance(div_award_raw, str):
+            is_div_award = div_award_raw.upper() in ['TRUE', '1', 'YES']
+        elif isinstance(div_award_raw, (int, float)):
+            is_div_award = bool(div_award_raw)
+        else:
+            is_div_award = bool(div_award_raw)
+        
+        # Validate script tags based on award type
+        if using_divisions and is_div_award:
+            # Division award - should have D1 and D2 tags
+            if not script_tag_d1 or not script_tag_d2:
+                missing_tags_warnings.append(
+                    f"Award {award_col} ({award_name}) is a division award but missing "
+                    f"ScriptTag{'D1' if not script_tag_d1 else 'D2'}"
                 )
+        elif not is_div_award:
+            # Tournament-level award or non-division tournament - should have NoDiv tag
+            if not script_tag_nodiv:
+                missing_tags_warnings.append(
+                    f"Award {award_col} ({award_name}) missing ScriptTagNoDiv"
+                )
+        
+        # Get or create award entry
+        if award_col in awards_dict:
+            award_entry = awards_dict[award_col]
+        else:
+            # Create new award entry
+            award_entry = {
+                "ID": award_col,
+                "Name": award_name,
+                "DivAwd": is_div_award,
+                "Labels": labels
+            }
+            awards_dict[award_col] = award_entry
+        
+        # Add appropriate count fields based on division level
+        if using_divisions and is_div_award:
+            # Division-level award - add count for this division
+            if current_div == "D1":
+                award_entry["D1_count"] = award_count
+            elif current_div == "D2":
+                award_entry["D2_count"] = award_count
             
-            return (mismatch_detected, tournament_name, award_count_mismatches)
+            # Add script tags for division awards (only if not empty)
+            if script_tag_d1:
+                award_entry["ScriptTagD1"] = script_tag_d1
+            if script_tag_d2:
+                award_entry["ScriptTagD2"] = script_tag_d2
+        else:
+            # Non-division tournament or tournament-level award
+            award_entry["TournCount"] = award_count
+            
+            # Add script tag for non-division/tournament awards (only if not empty)
+            if script_tag_nodiv:
+                award_entry["ScriptTagNoDiv"] = script_tag_nodiv
     
-    # Create new config file
-    logger.debug("Creating new tournament_config.json")
+    # Convert dictionary back to list
+    awards_list = list(awards_dict.values())
     
-    # Extract tournament data
-    tournament_long_name = tournament_row.get("Long Name", tournament_short_name)
-    tournament_date = tournament_row.get(COL_DATE, "")
-    
-    # Build award list: columns starting with J_AWD or P_AWD where value > 0
-    tournament_award_list = []
-    tournament_award_counts = {}  # Store counts for division validation
-    
-    for col in tournament_row.index:
-        # Check if column is an award column
-        if col.startswith(AWARD_COLUMN_PREFIX_JUDGED) or col.startswith("P_AWD"):
-            # Check if this tournament has this award (value > 0)
-            value = tournament_row[col]
-            if pd.notna(value) and value > 0:
-                # If using divisions, filter by DivAward = FALSE
-                if using_divisions:
-                    # Find matching row in dfAwardDef
-                    matching_awards = dfAwardDef[dfAwardDef[COL_COLUMN_NAME] == col]
-                    if not matching_awards.empty:
-                        div_award_value = matching_awards.iloc[0][COL_DIV_AWARD]
-                        # Only include if DivAward is FALSE (could be boolean or string)
-                        if isinstance(div_award_value, bool):
-                            if not div_award_value:
-                                tournament_award_list.append(col)
-                                tournament_award_counts[col] = int(value)
-                        elif isinstance(div_award_value, str):
-                            if div_award_value.upper() == "FALSE":
-                                tournament_award_list.append(col)
-                                tournament_award_counts[col] = int(value)
-                        elif div_award_value == 0:  # Sometimes FALSE is stored as 0
-                            tournament_award_list.append(col)
-                            tournament_award_counts[col] = int(value)
-                    else:
-                        logger.warning(f"Award column '{col}' not found in AwardDef for {tournament_short_name}")
-                else:
-                    # Not using divisions: all awards are tournament-level
-                    tournament_award_list.append(col)
-                    tournament_award_counts[col] = int(value)
-    
-    logger.debug(f"Found {len(tournament_award_list)} tournament-level awards")
-    
-    # Build config dictionary
-    config_data = {
-        "season_name": config.get("season_name", ""),
-        "season_year": config.get("season_yr", ""),
-        "tournament_short_name": tournament_short_name,
-        "tournament_long_name": tournament_long_name,
-        "tournament_date": str(tournament_date) if pd.notna(tournament_date) else "",
-        "using_divisions": using_divisions,
-        "ojs_filenames": [tournament_row[COL_OJS_FILENAME]],
-        "tournament_award_counts": tournament_award_counts
+    # Build final config structure
+    final_config = {
+        "INFO": info_section,
+        "AWARDS": awards_list
     }
     
     # Write config file
     try:
-        with open(config_file_path, "w", encoding="utf-8") as f:
-            json.dump(config_data, f, indent=2)
-        logger.info(f"✓ Created tournament_config.json: {config_file_path}")
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(final_config, f, indent=2)
+        logger.info(f"Tournament config saved: {config_path}")
         if not quiet:
-            print(f"{Fore.GREEN}✓ Created tournament config file{Style.RESET_ALL}")
+            logger.debug(f"Config contains {len(awards_list)} award(s)")
     except Exception as e:
-        print_error(
-            logger,
-            f"Could not write tournament_config.json: {config_file_path}",
-            e,
-            error_type='file_write',
-            context={'filename': 'tournament_config.json'}
-        )
+        logger.error(f"Failed to write tournament config: {e}")
     
-    return (mismatch_detected, tournament_name, award_count_mismatches)
+    # Add missing tags warnings to the award_mismatches list for summary
+    if missing_tags_warnings:
+        award_mismatches.extend(missing_tags_warnings)
+    
+    return mismatch_detected, tourn_short, award_mismatches

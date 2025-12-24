@@ -1,0 +1,63 @@
+{
+  "INFO": {
+  "season_name": "Unearthed",
+  "season_year": "2025",
+  "tournament_short_name": "Norfolk",
+  "tournament_long_name": "Norfolk 2025 Unearthed Qualifier Tournament",
+  "tournament_date": "2025-11-15 00:00:00",
+  "using_divisions": true,
+  "ojs_filenames": [
+    "2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div1.xlsm",
+    "2025-vadc-fll-challenge-Unearthed-ojs-Norfolk-div2.xlsm"
+  ]},
+  "AWARDS": 
+    [{"ID" : "J_AWD_Judges", 
+      "Name" : "Judges Award", 
+      "DivAwd" : "False",
+      "D1_count": "",
+      "D2_count": "",
+      "TournCount": "2",
+      "ScriptTagD1": "",
+      "ScriptTagD2": "",
+      "ScriptTagNoDiv": "J_AWD_Judges"
+    },
+    {"ID" : "J_AWD_CHAMP",
+      "Name": "Champions Award",
+      "DivAwd" : "True",
+      "D1_count": "2",
+      "D2_count": "2",
+      "TournCount": "",
+      "ScriptTagD1": "J_AWD_CHAMP_D1",
+      "ScriptTagD2": "J_AWD_CHAMP_D2",
+      "ScriptTagNoDiv": ""
+    },
+    {"ID" : "J_AWD_RD",
+      "Name": "Robot Design Award",
+      "DivAwd" : "True",
+      "D1_count": "2",
+      "D2_count": "2",
+      "TournCount": ""
+    },
+    {"ID" : "J_AWD_IP",
+      "Name": "Innovation Project Award",
+      "DivAwd" : "True",
+      "D1_count": "2",
+      "D2_count": "2",
+      "TournCount": ""
+    },
+    {"ID" : "J_AWD_CV",
+      "Name": "Core Values Award",
+      "DivAwd" : "True",
+      "D1_count": "2",
+      "D2_count": "2",
+      "TournCount": ""
+    },
+    {"ID" : "J_AWD_RG",
+      "Name": "Robot Game Award",
+      "DivAwd" : "True",
+      "D1_count": "2",
+      "D2_count": "2",
+      "TournCount": ""
+    }
+    ]
+}

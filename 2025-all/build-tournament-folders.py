@@ -34,10 +34,12 @@ from modules.worksheet_setup import (
     set_up_award_worksheet,
     set_up_meta_worksheet,
     resize_worksheets,
-    add_conditional_formats,
+    add_essential_conditional_formats,  # Changed from add_conditional_formats
     copy_award_def,
     protect_worksheets,
     hide_worksheets,
+    remove_external_links,
+    fix_named_ranges,
 )
 from modules.user_feedback import (
     ValidationSummary,
@@ -96,6 +98,12 @@ Examples:
         '--skip-validation',
         action='store_true',
         help='Skip pre-flight validation checks (not recommended)'
+    )
+    
+    parser.add_argument(
+        '--no-cleanup',
+        action='store_true',
+        help='Skip cleanup of existing OJS and config files (not recommended)'
     )
     
     return parser.parse_args()
@@ -157,6 +165,74 @@ def validate_environment(dir_path: str, config: dict, tournament_file: str, temp
     
     return summary
 
+def cleanup_tournament_folders(tournament_folder: str, tournaments_to_process: list[str], quiet: bool = False) -> dict:
+    """Remove existing OJS and config files from tournament folders.
+    
+    Args:
+        tournament_folder: Base tournament folder path
+        tournaments_to_process: List of tournament short names to clean
+        quiet: If True, suppress progress messages
+        
+    Returns:
+        Dictionary with cleanup statistics
+    """
+    logger.info("Starting cleanup of existing tournament files")
+    
+    stats = {
+        'ojs_deleted': 0,
+        'config_deleted': 0,
+        'folders_processed': 0,
+        'deletion_failures': []
+    }
+    
+    for tourn_name in tournaments_to_process:
+        folder_path = os.path.join(tournament_folder, tourn_name)
+        
+        if not os.path.exists(folder_path):
+            continue
+            
+        stats['folders_processed'] += 1
+        
+        # Delete OJS files (*.xlsm)
+        for file in os.listdir(folder_path):
+            if file.endswith('.xlsm'):
+                file_path = os.path.join(folder_path, file)
+                try:
+                    os.remove(file_path)
+                    stats['ojs_deleted'] += 1
+                    logger.debug(f"Deleted OJS file: {file}")
+                except PermissionError as e:
+                    error_msg = f"{tourn_name}/{file} (file may be open in Excel)"
+                    stats['deletion_failures'].append(error_msg)
+                    logger.warning(f"Permission denied deleting {file}: {e}")
+                except Exception as e:
+                    error_msg = f"{tourn_name}/{file} ({str(e)})"
+                    stats['deletion_failures'].append(error_msg)
+                    logger.warning(f"Could not delete {file}: {e}")
+        
+        # Delete tournament_config.json
+        config_file = os.path.join(folder_path, 'tournament_config.json')
+        if os.path.exists(config_file):
+            try:
+                os.remove(config_file)
+                stats['config_deleted'] += 1
+                logger.debug(f"Deleted config: {tourn_name}/tournament_config.json")
+            except PermissionError as e:
+                error_msg = f"{tourn_name}/tournament_config.json (file may be open)"
+                stats['deletion_failures'].append(error_msg)
+                logger.warning(f"Permission denied deleting tournament_config.json: {e}")
+            except Exception as e:
+                error_msg = f"{tourn_name}/tournament_config.json ({str(e)})"
+                stats['deletion_failures'].append(error_msg)
+                logger.warning(f"Could not delete tournament_config.json: {e}")
+    
+    if not quiet:
+        print_info(f"Cleanup: {stats['ojs_deleted']} OJS files, {stats['config_deleted']} config files removed")
+        if stats['deletion_failures']:
+            print_warning(f"Failed to delete {len(stats['deletion_failures'])} file(s) - they may be open")
+    
+    logger.info(f"Cleanup complete: {stats}")
+    return stats
 
 def main():
     """Main execution function."""
@@ -165,15 +241,15 @@ def main():
     # Quiet mode is default; interactive is opt-in
     quiet = not args.interactive
     
-    # Set up logger with appropriate verbosity
-    global logger
-    logger = setup_logger("ojs_builder", debug=args.verbose)
-    
-    # Determine script directory
+    # Determine script directory FIRST
     if getattr(sys, "frozen", False):
         dir_path = os.path.dirname(sys.executable)
     elif __file__:
         dir_path = os.path.dirname(__file__)
+    
+    # Set up logger with script directory
+    global logger
+    logger = setup_logger("ojs_builder", debug=args.verbose, log_dir=dir_path)
     
     if not quiet:
         print_section_header("OJS TOURNAMENT FOLDER BUILDER")
@@ -377,6 +453,66 @@ def main():
                     }
                 )
 
+    # Cleanup existing files (unless skipped)
+    if not args.no_cleanup:
+        if not quiet:
+            print_section_header("CLEANUP")
+            print_info("Removing existing OJS and config files...")
+        
+        # Get list of tournaments to clean
+        tournaments_to_clean = dfTournaments[COL_SHORT_NAME].unique().tolist()
+        
+        # In interactive mode, ask for confirmation
+        if not quiet:
+            cleanup_message = (
+                f"This will delete existing OJS files and tournament_config.json "
+                f"from {len(tournaments_to_clean)} tournament folder(s).\n"
+                f"Proceed with cleanup?"
+            )
+            if not confirm_action(cleanup_message, default=True):
+                logger.info("User skipped cleanup")
+                print_warning("Cleanup skipped by user")
+            else:
+                cleanup_stats = cleanup_tournament_folders(
+                    tournament_folder,
+                    tournaments_to_clean,
+                    quiet=quiet
+                )
+                
+                if not quiet:
+                    print_success(f"Cleanup complete: {cleanup_stats['folders_processed']} folders processed")
+                
+                # Display deletion failures if any
+                if cleanup_stats['deletion_failures']:
+                    print(f"\n{Fore.YELLOW}⚠ Could not delete {len(cleanup_stats['deletion_failures'])} file(s):{Style.RESET_ALL}")
+                    for failure in cleanup_stats['deletion_failures']:
+                        print(f"  • {failure}")
+                    print(f"\n{Fore.RED}ACTION REQUIRED: Close any open Excel files and try again.{Style.RESET_ALL}\n")
+                    
+                    if not confirm_action("Continue despite deletion failures?", default=False):
+                        logger.info("User cancelled due to deletion failures")
+                        print_warning("Operation cancelled by user")
+                        sys.exit(0)
+        else:
+            # Quiet mode - automatic cleanup
+            cleanup_stats = cleanup_tournament_folders(
+                tournament_folder,
+                tournaments_to_clean,
+                quiet=quiet
+            )
+            
+            # Still exit if there are deletion failures in quiet mode
+            if cleanup_stats['deletion_failures']:
+                logger.error(f"Cleanup failed: {len(cleanup_stats['deletion_failures'])} file(s) could not be deleted")
+                print_error(
+                    logger,
+                    f"Could not delete {len(cleanup_stats['deletion_failures'])} file(s). Close any open Excel files and try again.",
+                    error_type='file_open',
+                    context={'files': cleanup_stats['deletion_failures']}
+                )
+    else:
+        logger.info("Cleanup skipped (--no-cleanup flag)")
+
     # Confirm before processing (unless quiet)
     if not quiet:
         print_section_header("READY TO PROCESS")
@@ -456,7 +592,6 @@ def main():
             if not quiet:
                 progress.update("Metadata added")
             
-            add_conditional_formats(row, ojs_book)
             copy_award_def(row, ojs_book, dfAwardDef)
             if not quiet:
                 progress.update("Formatting applied")
@@ -469,9 +604,20 @@ def main():
             if not quiet:
                 progress.update("Tables resized")
             
+            # Add essential conditional formatting AFTER resize
+            add_essential_conditional_formats(ojs_book, len(dfAssignments[dfAssignments[COL_SHORT_NAME] == row[COL_SHORT_NAME]]))
+            
             protect_worksheets(row, ojs_book)
             if not quiet:
                 progress.update("Protection applied")
+            
+            # Fix named ranges (especially "Awards" range)
+            fix_named_ranges(ojs_book)
+            
+            # Remove any external workbook links before saving
+            remove_external_links(ojs_book)
+            if not quiet:
+                progress.update("Links removed")
             
         finally:
             ojs_book.save(ojs_path)
@@ -497,8 +643,22 @@ def main():
         print(f"\n{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}")
         print(f"{Fore.GREEN}  ALL TOURNAMENTS PROCESSED SUCCESSFULLY!  {Style.RESET_ALL}".center(70))
         print(f"{Fore.GREEN}{'═' * 60}{Style.RESET_ALL}\n")
+        
+        # Important note about VBA references
+        print(f"{Fore.CYAN}{'─' * 60}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}IMPORTANT:{Style.RESET_ALL}")
+        print(f"If Excel shows 'Update Links' warnings when opening OJS files:")
+        print(f"  1. Click 'Don't Update' or 'Break Links'")
+        print(f"  2. Press Alt+F11, go to Tools → References")
+        print(f"  3. Uncheck any MISSING references")
+        print(f"  4. Save the file\n")
+        print(f"To prevent this: Clean the template file's VBA references first.")
+        print(f"{Fore.CYAN}{'─' * 60}{Style.RESET_ALL}\n")
     
     logger.info("All tournaments processed successfully")
+    
+    # Track if there were any warnings or issues
+    has_warnings = bool(division_mismatches or award_count_issues)
     
     # Display division mismatch summary if any occurred
     if division_mismatches:
@@ -534,6 +694,18 @@ def main():
         print(f"  Verify tournament-level award counts match between divisions.")
         print(f"  OJS files may not work as expected if award counts are incorrect.\n")
         print(f"{Fore.YELLOW}{'═' * 60}{Style.RESET_ALL}\n")
+    
+    # Final exit message with warning reminder if needed
+    if not quiet and has_warnings:
+        print(f"\n{Fore.YELLOW}{'─' * 60}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}⚠ WARNINGS DETECTED{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}{'─' * 60}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Tournament files generated but there are warnings above.{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Please review the warnings carefully before distributing OJS files.{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Check the season workbook and re-run if corrections are needed.{Style.RESET_ALL}\n")
+        input(f"{Fore.YELLOW}Press ENTER to exit...{Style.RESET_ALL}")
+    elif not quiet:
+        input("\nPress ENTER to exit...")
 
 
 if __name__ == "__main__":
