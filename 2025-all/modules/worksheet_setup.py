@@ -610,7 +610,10 @@ def add_essential_conditional_formats(book: Workbook, num_teams: int) -> None:
         # Column W is the 23rd column
         col_w = get_column_letter(23)
         
-        # Rule 1: Award column header turns bright green when all awards are selected
+        # Add rules in REVERSE order of priority
+        # Excel applies CF rules from bottom to top, so add low-priority first
+        
+        # Rule 1 (LOW PRIORITY): Award column header - bright green when all selected
         award_list_ws = book[SHEET_AWARD_DROPDOWNS]
         award_list_table = None
         for tbl in award_list_ws.tables.values():
@@ -649,7 +652,7 @@ def add_essential_conditional_formats(book: Workbook, num_teams: int) -> None:
         else:
             logger.warning(f"Table {TABLE_AWARD_DROPDOWNS} not found, skipping Award column CF")
         
-        # Rule 2: Highlight duplicate award selections in bright red
+        # Rule 2 (LOW PRIORITY): Duplicate awards - red
         bright_red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
         purple_italic_font = Font(color="800080", italic=True, size=11)
         
@@ -664,38 +667,11 @@ def add_essential_conditional_formats(book: Workbook, num_teams: int) -> None:
         logger.info(f"Added duplicate detection CF to {award_data_range}")
         logger.debug(f"Duplicate CF Formula: {duplicate_formula}")
         
-        # Rule 3: Highlight entire row in yellow when award is selected
-        # Yellow fill (#FFFF99)
-        yellow_fill = PatternFill(start_color="FFFF99", end_color="FFFF99", fill_type="solid")
-        
-        # Apply to entire data range of the table (all columns, all data rows)
-        start_col_letter = get_column_letter(min_col)
-        end_col_letter = get_column_letter(max_col)
-        entire_data_range = f"{start_col_letter}{min_row + 1}:{end_col_letter}{max_row}"
-        
-        # Formula: $P3<>"" (checks if Award column is not empty)
-        # Use absolute column reference for Award column but relative row reference
-        row_highlight_formula = f'${award_col}{min_row + 1}<>""'
-        
-        row_highlight_rule = Rule(type="expression", formula=[row_highlight_formula], stopIfTrue=False)
-        row_highlight_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=yellow_fill)
-        
-        ws.conditional_formatting.add(entire_data_range, row_highlight_rule)
-        
-        logger.info(f"Added row highlighting CF to {entire_data_range}")
-        logger.debug(f"Row highlight CF Formula: {row_highlight_formula}")
-        
-        # Rule 4: Highlight Champion's Rank when in top N (advancing teams)
-        # Medium blue fill with white text
+        # Rule 3 (LOW PRIORITY): Champion's Rank - blue for top N
         medium_blue_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
         white_font = Font(color="FFFFFF")
         
-        # Apply to Champion's Rank column data cells
         champ_rank_range = f"{champ_rank_col}{min_row + 1}:{champ_rank_col}{max_row}"
-        
-        # Formula: Check if Champion's Rank <= value in Q1 (advancing count)
-        # Use absolute reference for Q1, relative reference for current cell
-        # $O3<=$Q$1 means: if this cell's rank is <= advancing count
         champ_rank_formula = f'{champ_rank_col}{min_row + 1}<=${advance_col}$1'
         
         champ_rank_rule = Rule(type="expression", formula=[champ_rank_formula], stopIfTrue=False)
@@ -705,43 +681,9 @@ def add_essential_conditional_formats(book: Workbook, num_teams: int) -> None:
         )
         
         ws.conditional_formatting.add(champ_rank_range, champ_rank_rule)
-        
-        logger.info(f"Added Champion's Rank highlighting CF to {champ_rank_range}")
         logger.debug(f"Champion's Rank CF Formula: {champ_rank_formula}")
         
-        # Rule 5: Highlight Robot Game Rank - Gold for 1st
-        gold_fill = PatternFill(start_color="FFD700", end_color="FFD700", fill_type="solid")
-        
-        rg_rank_range = f"{rg_rank_col}{min_row + 1}:{rg_rank_col}{max_row}"
-        
-        # Gold for rank = 1
-        gold_formula = f'{rg_rank_col}{min_row + 1}=1'
-        gold_rule = Rule(type="expression", formula=[gold_formula], stopIfTrue=False)
-        gold_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=gold_fill)
-        ws.conditional_formatting.add(rg_rank_range, gold_rule)
-        logger.debug(f"Added Robot Game Gold CF: {gold_formula}")
-        
-        # Rule 6: Silver for 2nd place (only if we have 2+ awards)
-        if rg_award_count >= 2:
-            silver_fill = PatternFill(start_color="C0C0C0", end_color="C0C0C0", fill_type="solid")
-            silver_formula = f'{rg_rank_col}{min_row + 1}=2'
-            silver_rule = Rule(type="expression", formula=[silver_formula], stopIfTrue=False)
-            silver_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=silver_fill)
-            ws.conditional_formatting.add(rg_rank_range, silver_rule)
-            logger.debug(f"Added Robot Game Silver CF: {silver_formula}")
-        
-        # Rule 7: Bronze for 3rd+ place (only if we have 3+ awards)
-        if rg_award_count >= 3:
-            bronze_fill = PatternFill(start_color="CD7F32", end_color="CD7F32", fill_type="solid")
-            # If exactly 3 awards, only highlight rank 3
-            # If 4+ awards, highlight ranks 3, 4, 5, etc.
-            bronze_formula = f'{rg_rank_col}{min_row + 1}>=3'
-            bronze_rule = Rule(type="expression", formula=[bronze_formula], stopIfTrue=False)
-            bronze_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=bronze_fill)
-            ws.conditional_formatting.add(rg_rank_range, bronze_rule)
-            logger.debug(f"Added Robot Game Bronze CF: {bronze_formula}")
-        
-        # Rule 8: Highlight Q1 and Q2 (Advance? header and count) when all advancing teams selected
+        # Rule 4 (LOW PRIORITY): Q1 and Q2 header - green when all advancing selected
         bright_green_fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
         
         # Apply to Q1 (header) and Q2 (count cell)
@@ -758,7 +700,7 @@ def add_essential_conditional_formats(book: Workbook, num_teams: int) -> None:
         logger.info(f"Added Advance? header highlighting CF to {advance_header_range}")
         logger.debug(f"Advance header CF Formula: {advance_count_formula}")
         
-        # Rule 9: Highlight W1 when correct advancing count AND one Alt team selected
+        # Rule 5 (LOW PRIORITY): W1 - green when correct advancing + one Alt
         bright_green_fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
         
         # Apply to W1 only
@@ -777,13 +719,72 @@ def add_essential_conditional_formats(book: Workbook, num_teams: int) -> None:
         logger.info(f"Added W1 Alt team highlighting CF to {w1_cell}")
         logger.debug(f"W1 CF Formula: {w1_formula}")
         
-        # Rule 10: Highlight "Yes" cells in Advance? column with medium blue
+        # Rule 6 (MEDIUM PRIORITY): Yellow row highlight when award selected
+        # Apply to entire row BUT exclude columns J (RG Rank), P (Award), Q (Advance?)
+        # We'll add the rule in multiple segments to skip those columns
+        yellow_fill = PatternFill(start_color="FFFF99", end_color="FFFF99", fill_type="solid")
+        
+        row_highlight_formula = f'${award_col}{min_row + 1}<>""'
+        row_highlight_rule = Rule(type="expression", formula=[row_highlight_formula], stopIfTrue=False)
+        row_highlight_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=yellow_fill)
+        
+        start_col_letter = get_column_letter(min_col)
+        end_col_letter = get_column_letter(max_col)
+        
+        # Apply yellow to columns A-I (before Robot Game Rank in column J)
+        range_before_j = f"{start_col_letter}{min_row + 1}:I{max_row}"
+        ws.conditional_formatting.add(range_before_j, row_highlight_rule)
+        
+        # Apply yellow to columns K-O (between RG Rank and Award)
+        range_k_to_o = f"K{min_row + 1}:O{max_row}"
+        ws.conditional_formatting.add(range_k_to_o, row_highlight_rule)
+        
+        # Apply yellow to column R onwards (after Advance?)
+        range_after_q = f"R{min_row + 1}:{end_col_letter}{max_row}"
+        ws.conditional_formatting.add(range_after_q, row_highlight_rule)
+        
+        logger.debug(f"Row highlight CF Formula: {row_highlight_formula}")
+        logger.debug(f"Applied to ranges: {range_before_j}, {range_k_to_o}, {range_after_q}")
+        
+        # Rules 7-11 (HIGH PRIORITY): Column-specific highlights
+        # Now these can be applied without competition
+        
+        # Rule 7: Robot Game Gold (Column J)
+        gold_fill = PatternFill(start_color="FFD700", end_color="FFD700", fill_type="solid")
+        rg_rank_range = f"{rg_rank_col}{min_row + 1}:{rg_rank_col}{max_row}"
+        
+        gold_formula = f'{rg_rank_col}{min_row + 1}=1'
+        gold_rule = Rule(type="expression", formula=[gold_formula], stopIfTrue=False)
+        gold_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=gold_fill)
+        ws.conditional_formatting.add(rg_rank_range, gold_rule)
+        logger.debug(f"Added Robot Game Gold CF: {gold_formula}")
+        
+        # Rule 8: Robot Game Silver (Column J)
+        if rg_award_count >= 2:
+            silver_fill = PatternFill(start_color="C0C0C0", end_color="C0C0C0", fill_type="solid")
+            silver_formula = f'{rg_rank_col}{min_row + 1}=2'
+            silver_rule = Rule(type="expression", formula=[silver_formula], stopIfTrue=False)
+            silver_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=silver_fill)
+            ws.conditional_formatting.add(rg_rank_range, silver_rule)
+            logger.debug(f"Added Robot Game Silver CF: {silver_formula}")
+        
+        # Rule 9: Robot Game Bronze (Column J)
+        if rg_award_count >= 3:
+            bronze_fill = PatternFill(start_color="CD7F32", end_color="CD7F32", fill_type="solid")
+            bronze_formula = f'{rg_rank_col}{min_row + 1}>=3'
+            bronze_rule = Rule(type="expression", formula=[bronze_formula], stopIfTrue=False)
+            bronze_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=bronze_fill)
+            ws.conditional_formatting.add(rg_rank_range, bronze_rule)
+            logger.debug(f"Added Robot Game Bronze CF: {bronze_formula}")
+        
+        # Rule 10: Award column duplicates (Column P) - already added above as Rule 2
+        
+        # Rule 11: Advance "Yes" - medium blue (Column Q)
         medium_blue_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
         white_font = Font(color="FFFFFF")
         
         advance_data_range = f"{advance_col}{min_row + 1}:{advance_col}{max_row}"
         
-        # Formula: Check if cell contains "Yes"
         yes_formula = f'{advance_col}{min_row + 1}="Yes"'
         yes_rule = Rule(type="expression", formula=[yes_formula], stopIfTrue=False)
         yes_rule.dxf = openpyxl.styles.differential.DifferentialStyle(
@@ -793,18 +794,16 @@ def add_essential_conditional_formats(book: Workbook, num_teams: int) -> None:
         ws.conditional_formatting.add(advance_data_range, yes_rule)
         logger.debug(f"Added 'Yes' highlighting CF: {yes_formula}")
         
-        # Rule 11: Highlight "Alt" cells in Advance? column with light blue
+        # Rule 12: Advance "Alt" - light blue (Column Q)
         light_blue_fill = PatternFill(start_color="9BC2E6", end_color="9BC2E6", fill_type="solid")
         
-        # Formula: Check if cell contains "Alt"
         alt_formula = f'{advance_col}{min_row + 1}="Alt"'
         alt_rule = Rule(type="expression", formula=[alt_formula], stopIfTrue=False)
         alt_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=light_blue_fill)
         ws.conditional_formatting.add(advance_data_range, alt_rule)
         logger.debug(f"Added 'Alt' highlighting CF: {alt_formula}")
         
-        logger.info(f"Added Robot Game rank highlighting (gold/silver/bronze)")
-        logger.info(f"Added Advance? column highlighting (Yes/Alt)")
+        logger.info(f"Added all conditional formatting rules")
         
     except Exception as e:
         logger.warning(f"Could not add conditional formatting: {e}")
