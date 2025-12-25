@@ -26,9 +26,9 @@
 
 <h2>List of Teams</h2>
 
-{{ div1_list }}
+{{ div1_list|safe }}
 
-{{ div2_list }}
+{{ div2_list|safe }}
 
 <p><span class="highlight1"><i>The Emcee can announce each team as they move through a line of volunteers to receive their tournament ribbons. You might want to funnel them into a "reserved for teams" seating area in the stands.</i></span></p>
 
@@ -61,9 +61,9 @@
 <p><span class="highlight1">Now on to the Team Awards!  We begin with the Robot Performance Awards.  This award celebrates teams that score the most points during the Robot Game. Teams have a chance to compete in three two-and-a-half-minute matches and their highest score counts.</span></p>
 
 <!-- Robot Game Scores -->
-{{ P_AWD_RG_D1 }}
+{{ P_AWD_RG_D1|safe }}
 
-{{ P_AWD_RG_D2 }}
+{{ P_AWD_RG_D2|safe }}
 
 <h2>Innovation Project Award</h2>
 
@@ -71,9 +71,9 @@
 
 <p><span class="highlight1">During our archeology-themed season, {{ ip_this_these }} utilized diverse resources for their Innovation Project to help them gain a comprehensive understanding of the problem they identified, developed a creative, well-researched solution and effectively communicated their findings to judges and the community.</span></p>
 
-{{ J_AWD_IP_D1 }}
+{{ J_AWD_IP_D1|safe }}
 
-{{ J_AWD_IP_D2 }}
+{{ J_AWD_IP_D2|safe }}
 
 <h2>Robot Design Award</h2>
 <p><span class="highlight0">Congratulations on those amazing projects! Next - we move to the Robot Design Award.</span></p>
@@ -81,23 +81,23 @@
 <!-- Robot Design Judging -->
 <p><span class="highlight1">{{ rd_this_these }} used outstanding programming principles and solid engineering practices to develop a robot that is mechanically sound, durable, efficient, and highly capable of performing challenge missions.</span></p>
 
-{{ J_AWD_RD_D1 }}
+{{ J_AWD_RD_D1|safe }}
 
-{{ J_AWD_RD_D2 }}
+{{ J_AWD_RD_D2|safe }}
 
 <h2>Core Values Award</h2>
 <p><span class="highlight0">Congratulations to our Robot Design Award winners.  Now, our Core Values Award. This award celebrates teams that display extraordinary enthusiasm and spirit, they know that they can accomplish more together than they could as individuals, and they show each other and other teams respect at all times.</span></p>
 
-{{ J_AWD_CV_D1 }}
+{{ J_AWD_CV_D1|safe }}
 
-{{ J_AWD_CV_D2 }}
+{{ J_AWD_CV_D2|safe }}
 
 {% if ja_count > 0 %}
 <h2>Judge's Award</h2>
 <p><span class="highlight1">In addition to our Core Awards, we also have {{ ja_count }} judge's award(s) to give out.  A Judge's Award is given to a team who made a big impact on our Judges for one spectacular reason or another.</span></p>
 
 <p><span class="highlight1">{{ ja_go_goes }}:</span></p>
-{{ J_AWD_Judges }}</p>
+{{ J_AWD_Judges|safe }}</p>
 {% endif %}
 
 <h2>Other Recognition</h2>
@@ -108,9 +108,9 @@
 <h2>Champion's Award</h2>
 <p><span class="highlight0">Finally, we come to our Champion's Award. The Champion's Award celebrates a team that embodies the FIRST LEGO League experience, by fully embracing our Core Values while achieving excellence and innovation in Robot Performance, Robot Design, and the Innovation Project.</span></p>
 
-{{ J_AWD_CHAMP_D1 }}
+{{ J_AWD_CHAMP_D1|safe }}
 
-{{ J_AWD_CHAMP_D2 }}
+{{ J_AWD_CHAMP_D2|safe }}
 
 
 <h2>Advancing Teams</h2>
@@ -118,12 +118,12 @@
 
 {% if ADV_D1 != "" %}
 <p><span class="highlight0">The Division 1 teams that are advancing are</span></p>
-{{ ADV_D1 }}
+{{ ADV_D1|safe }}
 {% endif %}
 
 {% if ADV_D2 != "" %}
 <p><span class="highlight1">The Division 2 teams that are advancing are</span></p>
-{{ ADV_D2 }}
+{{ ADV_D2|safe }}
 {% endif %}
 
 <h2>Closing</h2>

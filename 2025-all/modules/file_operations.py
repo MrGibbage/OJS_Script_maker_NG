@@ -6,6 +6,7 @@ import shutil
 import logging
 from typing import Any
 import pandas as pd
+from openpyxl import load_workbook
 
 from .constants import (
     COL_SHORT_NAME, 
@@ -13,7 +14,8 @@ from .constants import (
     COL_DATE, 
     COL_COLUMN_NAME, 
     COL_DIV_AWARD,
-    AWARD_COLUMN_PREFIX_JUDGED
+    AWARD_COLUMN_PREFIX_JUDGED,
+    SHEET_TEAM_INFO
 )
 from .logger import print_error
 
@@ -193,12 +195,6 @@ def generate_tournament_config(
     Returns:
         Tuple of (mismatch_detected, tournament_name, award_mismatches)
     """
-    from .constants import (
-        COL_SHORT_NAME, COL_LONG_NAME, COL_DIVISION, COL_OJS_FILENAME, COL_DATE,
-        COL_COLUMN_NAME, COL_DIV_AWARD, COL_SCRIPT_TAG_D1, COL_SCRIPT_TAG_D2, 
-        COL_SCRIPT_TAG_NODIV, AWARD_COLUMN_PREFIX_JUDGED, AWARD_COLUMN_ROBOT_GAME,
-        AWARD_LABEL_PREFIX
-    )
     
     logger.info(f"Generating tournament config for {tournament[COL_SHORT_NAME]}")
     
@@ -223,7 +219,6 @@ def generate_tournament_config(
         if pd.isna(tourn_date):
             tourn_date = ""
         else:
-            # Convert to string if it's a datetime
             tourn_date = str(tourn_date)
         
         # Determine OJS filenames for this tournament
@@ -236,6 +231,9 @@ def generate_tournament_config(
         else:
             ojs_filenames = [tournament[COL_OJS_FILENAME]]
         
+        # Read dual_emcee flag from OJS file(s) - TRUE if ANY OJS has it set to TRUE
+        dual_emcee = False
+        
         info_section = {
             "season_name": config.get("season_name", ""),
             "season_year": config.get("season_yr", ""),
@@ -243,6 +241,7 @@ def generate_tournament_config(
             "tournament_long_name": tournament.get(COL_LONG_NAME, ""),
             "tournament_date": tourn_date,
             "using_divisions": using_divisions,
+            "dual_emcee": dual_emcee,  # Will be updated below
             "ojs_filenames": ojs_filenames
         }
     else:
@@ -252,6 +251,33 @@ def generate_tournament_config(
         if current_ojs and not pd.isna(current_ojs):
             if current_ojs not in info_section.get("ojs_filenames", []):
                 info_section.setdefault("ojs_filenames", []).append(current_ojs)
+    
+    # Read dual_emcee from current OJS file (cell F2 on Team and Program Information sheet)
+    current_ojs_path = os.path.join(tournament_folder, tourn_short, tournament[COL_OJS_FILENAME])
+    
+    try:
+        if os.path.exists(current_ojs_path):
+            ojs_book = load_workbook(current_ojs_path, data_only=True)
+            ws_tapi = ojs_book[SHEET_TEAM_INFO]
+            dual_emcee_value = ws_tapi["F2"].value
+            
+            # Convert to boolean
+            current_dual_emcee = False
+            if isinstance(dual_emcee_value, bool):
+                current_dual_emcee = dual_emcee_value
+            elif isinstance(dual_emcee_value, str):
+                current_dual_emcee = dual_emcee_value.upper() in ['TRUE', 'YES', '1']
+            elif isinstance(dual_emcee_value, (int, float)):
+                current_dual_emcee = bool(dual_emcee_value)
+            
+            # OR logic: if either OJS has TRUE, enable dual emcee
+            if current_dual_emcee:
+                info_section["dual_emcee"] = True
+                logger.debug(f"Dual emcee enabled from {tournament[COL_OJS_FILENAME]}")
+            
+            ojs_book.close()
+    except Exception as e:
+        logger.debug(f"Could not read dual_emcee from {current_ojs_path}: {e}")
     
     # Build AWARDS section - use dictionary for easier merging
     awards_dict = {}
@@ -382,6 +408,7 @@ def generate_tournament_config(
         logger.info(f"Tournament config saved: {config_path}")
         if not quiet:
             logger.debug(f"Config contains {len(awards_list)} award(s)")
+            logger.debug(f"Dual emcee: {info_section.get('dual_emcee', False)}")
     except Exception as e:
         logger.error(f"Failed to write tournament config: {e}")
     

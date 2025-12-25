@@ -226,15 +226,7 @@ def set_up_meta_worksheet(
     tournament_folder: str,
     using_divisions: bool
 ) -> None:
-    """Populate the metadata worksheet with tournament information.
-    
-    Args:
-        tournament: A pandas Series representing the tournament row
-        book: An open openpyxl Workbook object
-        config: Dictionary containing season configuration
-        tournament_folder: Root folder where tournament subfolders are created
-        using_divisions: Boolean indicating if divisions are used
-    """
+    """Populate the metadata worksheet with tournament information."""
     d = tournament[COL_DIVISION] if using_divisions else ""
     logger.info(f"Setting up metadata for {tournament[COL_SHORT_NAME]} {d}")
     

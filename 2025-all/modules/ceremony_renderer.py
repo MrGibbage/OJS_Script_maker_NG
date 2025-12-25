@@ -77,7 +77,10 @@ class CeremonyRenderer:
         template_vars = self.extract_template_variables(template_filename)
         provided_set = set(provided_vars.keys())
         
-        missing = template_vars - provided_set
+        # Internal variables added by renderer - exclude from validation
+        internal_vars = {'bg_color_0', 'bg_color_1'}
+        
+        missing = template_vars - provided_set - internal_vars
         
         errors = []
         warnings = []
@@ -115,16 +118,37 @@ class CeremonyRenderer:
         Returns:
             True if successful, False otherwise
         """
+        logger.info(f"Rendering template: {template_filename}")
+        
         try:
-            template = self.load_template(template_filename)
+            template = self.env.get_template(template_filename)
+            
+            # Determine dual_emcee mode from data (passed from config)
+            dual_emcee = data.get('dual_emcee', False)
+            
+            # Set background colors based on dual_emcee flag
+            if dual_emcee:
+                bg_color_0 = "lightblue"
+                bg_color_1 = "yellow"
+                logger.debug("Dual emcee mode enabled - setting highlight colors")
+            else:
+                bg_color_0 = "transparent"
+                bg_color_1 = "transparent"
+                logger.debug("Single emcee mode - transparent highlights")
+            
+            # Add bg_color variables to template data
+            template_data = {
+                'bg_color_0': bg_color_0,
+                'bg_color_1': bg_color_1,
+                **data  # Spread existing data
+            }
             
             # Render template
-            logger.info("Rendering template...")
-            rendered = template.render(**data)
+            output = template.render(**template_data)
             
-            # Write to file
+            # Write output
             with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(rendered)
+                f.write(output)
             
             logger.info(f"Ceremony script saved to: {output_path}")
             return True

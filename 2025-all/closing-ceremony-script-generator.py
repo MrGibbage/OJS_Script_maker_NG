@@ -4,7 +4,7 @@ This script validates OJS data, collects award winners and team information,
 and renders a closing ceremony script using a Jinja template.
 
 Usage:
-    python closing-ceremony-script-generator.py
+    python closing-ceremony-script-generator.py [--verbose] [--debug]
     (Run from within a tournament folder containing tournament_config.json)
 """
 
@@ -13,6 +13,7 @@ import sys
 import json
 import logging
 import warnings
+import argparse
 from colorama import init, Fore, Style
 
 # Suppress openpyxl warnings about conditional formatting
@@ -92,11 +93,41 @@ def generate_output_filename(ojs_filenames: list) -> str:
     return output_name
 
 
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Generate closing ceremony script from OJS files"
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Enable verbose logging (INFO level)'
+    )
+    parser.add_argument(
+        '--debug', '-d',
+        action='store_true',
+        help='Enable debug logging (DEBUG level, implies --verbose)'
+    )
+    
+    return parser.parse_args()
+
+
 def main():
     """Main execution function."""
+    # Parse arguments first
+    args = parse_arguments()
+    
+    # Determine logging level
+    if args.debug:
+        log_debug = True
+    elif args.verbose:
+        log_debug = False  # INFO level
+    else:
+        log_debug = False  # Default (WARNING level in setup_logger when debug=False)
+    
     print_header("CLOSING CEREMONY SCRIPT GENERATOR")
     
-    # Get directory where THIS script is located (not where Python was launched from)
+    # Get directory where THIS script is located
     if getattr(sys, 'frozen', False):
         # Running as compiled executable
         script_dir = os.path.dirname(sys.executable)
@@ -104,13 +135,16 @@ def main():
         # Running as Python script
         script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # Set up logger AFTER we know the script directory (with clean logs, auto-cleanup)
+    # Set up logger with appropriate level
     global logger
-    logger = setup_logger("ceremony_generator", debug=False, log_dir=script_dir)
+    logger = setup_logger("ceremony_generator", debug=log_debug, log_dir=script_dir)
+    
+    if args.debug:
+        logger.info("Debug logging enabled")
+    elif args.verbose:
+        logger.info("Verbose logging enabled")
     
     logger.info(f"Script location: {script_dir}")
-    
-    # No need to manually find/print log file - it's automatic now
     
     # Load configuration
     config_path = os.path.join(script_dir, 'tournament_config.json')
@@ -121,9 +155,41 @@ def main():
     using_divisions = info['using_divisions']
     ojs_filenames = info['ojs_filenames']
     
+    # Read dual_emcee flag from OJS files at runtime (OR logic: TRUE if ANY OJS has it set)
+    dual_emcee = False
+    for ojs_file in ojs_filenames:
+        ojs_path = os.path.join(script_dir, ojs_file)
+        if os.path.exists(ojs_path):
+            try:
+                from openpyxl import load_workbook
+                wb = load_workbook(ojs_path, data_only=True)
+                ws = wb["Team and Program Information"]
+                dual_emcee_value = ws["F2"].value
+                wb.close()
+                
+                # Convert to boolean
+                if isinstance(dual_emcee_value, bool):
+                    if dual_emcee_value:
+                        dual_emcee = True
+                        logger.debug(f"Dual emcee enabled from {ojs_file}")
+                        break  # Found TRUE, no need to check other files
+                elif isinstance(dual_emcee_value, str):
+                    if dual_emcee_value.upper() in ['TRUE', 'YES', '1']:
+                        dual_emcee = True
+                        logger.debug(f"Dual emcee enabled from {ojs_file}")
+                        break
+                elif isinstance(dual_emcee_value, (int, float)):
+                    if dual_emcee_value:
+                        dual_emcee = True
+                        logger.debug(f"Dual emcee enabled from {ojs_file}")
+                        break
+            except Exception as e:
+                logger.debug(f"Could not read dual_emcee from {ojs_file}: {e}")
+    
     print(f"{Fore.CYAN}Tournament:{Style.RESET_ALL} {info['tournament_long_name']}")
     print(f"{Fore.CYAN}Using divisions:{Style.RESET_ALL} {using_divisions}")
     print(f"{Fore.CYAN}OJS files:{Style.RESET_ALL} {len(ojs_filenames)}")
+    print(f"{Fore.CYAN}Dual emcee:{Style.RESET_ALL} {dual_emcee}")
     
     # Validate OJS files exist
     print_header("VALIDATING OJS FILES")
@@ -178,12 +244,13 @@ def main():
     
     # Collect data
     print_header("COLLECTING AWARD DATA")
-    collector = CeremonyDataCollector(config)
+    collector = CeremonyDataCollector(config, dual_emcee=dual_emcee)
     template_data = {}
     
     # Basic info
     template_data['tournament_name'] = info['tournament_long_name']
     template_data['using_divisions'] = 1 if using_divisions else 0
+    template_data['dual_emcee'] = dual_emcee  # Pass to renderer
     
     # Collect team lists
     print("Collecting team lists...")
