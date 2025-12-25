@@ -93,6 +93,50 @@ def set_up_tapi_worksheet(
     sorted_assignees = assignees.sort_values(by=COL_TEAM_NUMBER, ascending=True)
     
     add_table_dataframe(book, SHEET_TEAM_INFO, TABLE_TEAM_LIST, sorted_assignees)
+    
+    # Now copy formatting from the template row to all data rows
+    from openpyxl.styles.protection import Protection
+    from openpyxl.utils import range_boundaries
+    
+    ws = book[SHEET_TEAM_INFO]
+    table = ws.tables[TABLE_TEAM_LIST]
+    
+    min_col, min_row, max_col, max_row = range_boundaries(table.ref)
+    
+    # First data row is the template
+    first_data_row = min_row + 1
+    
+    # Copy font and row height from first data row to all other rows
+    for col_idx in range(min_col, max_col + 1):
+        template_cell = ws.cell(row=first_data_row, column=col_idx)
+        
+        # Copy font to all data rows
+        for row_idx in range(first_data_row + 1, max_row + 1):
+            target_cell = ws.cell(row=row_idx, column=col_idx)
+            try:
+                target_cell.font = _copy(template_cell.font)
+            except Exception:
+                pass
+    
+    # Copy row height from template row to all data rows
+    try:
+        template_height = ws.row_dimensions[first_data_row].height
+        if template_height is not None:
+            for row_idx in range(first_data_row + 1, max_row + 1):
+                ws.row_dimensions[row_idx].height = template_height
+            logger.debug(f"Copied row height ({template_height}) to all data rows")
+    except Exception:
+        pass
+    
+    # Unlock Pod Number column (column 4/D) so users can edit it
+    pod_col_idx = 4  # D is the 4th column
+    
+    for row_idx in range(min_row + 1, max_row + 1):  # Skip header row
+        cell = ws.cell(row=row_idx, column=pod_col_idx)
+        cell.protection = Protection(locked=False)
+    
+    logger.debug(f"Unlocked Pod Number column (D{min_row + 1}:D{max_row})")
+    
     return True
 
 
