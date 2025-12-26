@@ -1,7 +1,7 @@
 [project]
 name = "ojs-tournament-builder"
 version = "2.0.0"
-description = "Automated tool to prepare per-tournament folders and populate OJS spreadsheets"
+description = "Automated tool to prepare per-tournament folders, populate OJS spreadsheets, and generate closing ceremony scripts"
 authors = [
     {name = "MrGibbage"}
 ]
@@ -13,6 +13,7 @@ dependencies = [
     "openpyxl>=3.1.0",
     "pandas>=2.0.0",
     "colorama>=0.4.6",
+    "jinja2>=3.1.0",
     "xlwings>=0.30.0",
     "numpy>=1.24.0",
 ]
@@ -39,3 +40,4 @@ ignore = ["E501"]  # Line too long (handled by black)
 
 [project.scripts]
 build-tournaments = "build-tournament-folders:main"
+ceremony-script = "closing-ceremony-script-generator:main"

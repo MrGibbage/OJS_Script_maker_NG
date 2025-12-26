@@ -1,10 +1,12 @@
-"""Generate closing ceremony script from OJS files.
+"""TOAST - Tournament OJS And Script Toolkit
+
+Generate closing ceremony scripts from OJS files for FIRST LEGO League tournaments.
 
 This script validates OJS data, collects award winners and team information,
 and renders a closing ceremony script using a Jinja template.
 
 Usage:
-    python closing-ceremony-script-generator.py [--verbose] [--debug]
+    python fll-toast.py [--verbose] [--debug]
     (Run from within a tournament folder containing tournament_config.json)
 """
 
@@ -29,6 +31,19 @@ from modules.ceremony_renderer import CeremonyRenderer
 
 # Initialize colorama
 init()
+
+
+def print_splash():
+    """Print TOAST splash screen."""
+    print(f"\n{Fore.YELLOW}{'█' * 72}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}█{Style.RESET_ALL}{'  ' * 35}{Fore.YELLOW}█{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}█{Style.RESET_ALL}                           {Fore.CYAN}╔╦╗╔═╗╔═╗╔═╗╔╦╗{Style.RESET_ALL}                            {Fore.YELLOW}█{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}█{Style.RESET_ALL}                           {Fore.CYAN} ║ ║ ║╠═╣╚═╗ ║ {Style.RESET_ALL}                            {Fore.YELLOW}█{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}█{Style.RESET_ALL}                           {Fore.CYAN} ╩ ╚═╝╩ ╩╚═╝ ╩ {Style.RESET_ALL}                            {Fore.YELLOW}█{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}█{Style.RESET_ALL}{'  ' * 35}{Fore.YELLOW}█{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}█{Style.RESET_ALL}       {Fore.WHITE}Tournament OJS And Script Toolkit for FIRST LEGO League{Style.RESET_ALL}        {Fore.YELLOW}█{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}█{Style.RESET_ALL}{'  ' * 35}{Fore.YELLOW}█{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}{'█' * 72}{Style.RESET_ALL}\n")
 
 
 def print_header(text: str):
@@ -96,7 +111,7 @@ def generate_output_filename(ojs_filenames: list) -> str:
 def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Generate closing ceremony script from OJS files"
+        description="TOAST - Tournament OJS And Script Toolkit: Generate closing ceremony scripts"
     )
     parser.add_argument(
         '--verbose', '-v',
@@ -125,7 +140,8 @@ def main():
     else:
         log_debug = False  # Default (WARNING level in setup_logger when debug=False)
     
-    print_header("CLOSING CEREMONY SCRIPT GENERATOR")
+    # Print splash screen
+    print_splash()
     
     # Get directory where THIS script is located
     if getattr(sys, 'frozen', False):
@@ -263,7 +279,7 @@ def main():
             template_data['div2_list'] = collector.format_team_list_as_html(div2_teams)
     else:
         all_teams = collector.collect_team_list(os.path.join(script_dir, ojs_filenames[0]))
-        template_data['all_teams_list'] = collector.format_team_list_as_html(all_teams)
+        template_data['team_list'] = collector.format_team_list_as_html(all_teams)
     
     # Collect advancing teams
     print("Collecting advancing teams...")
@@ -377,10 +393,10 @@ def main():
                     # Special handling for Judges Award
                     if award_id == 'J_AWD_Judges':
                         template_data['ja_count'] = len(all_winners)
-                        template_data['ja_go_goes'] = "goes" if len(all_winners) == 1 else "go"
+                        template_data['ja_go_goes'] = "The judges award goes to:" if len(all_winners) == 1 else "The judges awards go to:"
     
     # Set empty strings for any missing variables
-    expected_vars = ['div1_list', 'div2_list', 'all_teams_list', 'ADV_D1', 'ADV_D2',
+    expected_vars = ['div1_list', 'div2_list', 'team_list', 'ADV_D1', 'ADV_D2',
                      'ip_this_these', 'rd_this_these', 'ja_count', 'ja_go_goes']
     for var in expected_vars:
         if var not in template_data:

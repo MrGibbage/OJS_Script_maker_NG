@@ -10,11 +10,18 @@ from openpyxl import load_workbook
 
 from .constants import (
     COL_SHORT_NAME, 
+    COL_LONG_NAME,
     COL_OJS_FILENAME, 
     COL_DATE, 
+    COL_DIVISION,
     COL_COLUMN_NAME, 
     COL_DIV_AWARD,
+    COL_SCRIPT_TAG_D1,
+    COL_SCRIPT_TAG_D2,
+    COL_SCRIPT_TAG_NODIV,
     AWARD_COLUMN_PREFIX_JUDGED,
+    AWARD_COLUMN_ROBOT_GAME,
+    AWARD_LABEL_PREFIX,
     SHEET_TEAM_INFO
 )
 from .logger import print_error
@@ -109,7 +116,8 @@ def copy_files(
     dir_path: str,
     template_file: str,
     extrafilelist: list[str],
-    tournament_folder: str
+    tournament_folder: str,
+    using_divisions: bool = False
 ) -> None:
     """Copy extra files and OJS template into tournament folder.
     
@@ -119,6 +127,7 @@ def copy_files(
         template_file: Path to OJS template workbook
         extrafilelist: List of filenames to copy
         tournament_folder: Root folder where tournament subfolders are created
+        using_divisions: Whether the tournament uses divisions (affects template choice)
         
     Raises:
         Exits via print_error if any copy operation fails
@@ -132,6 +141,9 @@ def copy_files(
     logger.info(f"Copying files for tournament: {item[COL_SHORT_NAME]}")
     
     for filename in extrafilelist:
+        # Skip script templates - we'll handle them separately based on divisions
+        if filename.startswith('script_template') and filename.endswith('.html.jinja'):
+            continue
         try:
             source_path = os.path.join(dir_path, filename)
             if not os.path.exists(source_path):
@@ -157,6 +169,31 @@ def copy_files(
             print_error(logger, f"Could not copy file '{filename}' to {dest_folder}", e)
             
     logger.info("Extra files copied successfully")
+    
+    # Copy the appropriate ceremony script template based on divisions
+    # Note: We maintain two separate template files in the source directory:
+    #   - script_template.html.jinja (for non-division tournaments)
+    #   - script_template-with-divisions.html.jinja (for division tournaments)
+    # But we always copy the correct one to 'script_template.html.jinja' in the
+    # tournament folder, so TOAST doesn't need to know which variant to use.
+    try:
+        dest_folder = os.path.join(tournament_folder, item[COL_SHORT_NAME])
+        
+        if using_divisions:
+            source_template = os.path.join(dir_path, 'script_template-with-divisions.html.jinja')
+            logger.debug("Using divisions template: script_template-with-divisions.html.jinja")
+        else:
+            source_template = os.path.join(dir_path, 'script_template.html.jinja')
+            logger.debug("Using single-division template: script_template.html.jinja")
+        
+        if not os.path.exists(source_template):
+            logger.warning(f"Script template not found: {source_template}, skipping")
+        else:
+            dest_template = os.path.join(dest_folder, 'script_template.html.jinja')
+            shutil.copy(source_template, dest_template)
+            logger.debug(f"Copied script template to {dest_template}")
+    except Exception as e:
+        logger.warning(f"Could not copy script template: {e}")
     
     # Copy OJS template
     try:

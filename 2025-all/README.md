@@ -1,6 +1,14 @@
-# OJS Tournament Folder Builder
+# OJS Tournament Builder & Ceremony Script Generator
 
-Automated tool to prepare per-tournament folders and populate OJS (Online Judge System) spreadsheets for FIRST LEGO League tournaments.
+Automated tools to prepare per-tournament folders, populate OJS (Online Judge System) spreadsheets, and generate closing ceremony scripts for FIRST LEGO League tournaments.
+
+## Features
+
+- **Tournament Folder Builder**: Automatically creates tournament folders and populates OJS spreadsheets with team assignments
+- **Closing Ceremony Script Generator**: Validates OJS data and generates HTML ceremony scripts with award winners
+- **Dual Emcee Support**: Optional alternating color highlighting for two emcees reading the ceremony script
+- **Conditional Formatting**: Visual feedback in OJS files for awards, ranks, and advancing teams
+- **Comprehensive Validation**: Checks scores, ranges, and award allocations before ceremony script generation
 
 ## Installation
 
@@ -14,11 +22,12 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 # macOS/Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Create virtual environment and install dependencies
+# Create virtual environment and install all dependencies
 cd 2025-all
-uv venv
-uv pip install -e .
+uv sync
 ```
+
+The `uv sync` command creates the virtual environment, installs all dependencies from `pyproject.toml`, and sets up the project in editable mode - all in one step!
 
 ### Using pip (Alternative)
 
@@ -32,7 +41,9 @@ pip install -e .
 
 ## Usage
 
-### Quick Start (Default - Quiet Mode)
+### Tournament Folder Builder
+
+#### Quick Start (Default - Quiet Mode)
 
 ```bash
 # Activate environment (if using uv)
@@ -47,7 +58,7 @@ python build-tournament-folders.py
 
 You'll be prompted to select a tournament or press ENTER to build all.
 
-### Command-Line Options
+#### Command-Line Options
 
 ```bash
 # Interactive mode (with prompts and validation summary)
@@ -66,7 +77,7 @@ python build-tournament-folders.py --verbose --tournament "ABC"
 python build-tournament-folders.py --help
 ```
 
-### Available Flags
+#### Available Flags
 
 | Flag | Short | Description |
 |------|-------|-------------|
@@ -74,6 +85,49 @@ python build-tournament-folders.py --help
 | `--verbose` | `-v` | Enable debug logging to console and file |
 | `--tournament NAME` | `-t NAME` | Process only the specified tournament |
 | `--skip-validation` | | Skip pre-flight checks (not recommended) |
+
+### Closing Ceremony Script Generator
+
+Run the ceremony script generator from within a tournament folder after OJS files are complete.
+
+```bash
+# Navigate to a tournament folder
+cd tournaments/Norfolk
+
+# Run the generator (verbose mode recommended)
+python ../../closing-ceremony-script-generator.py --verbose
+
+# Debug mode for troubleshooting
+python ../../closing-ceremony-script-generator.py --debug
+```
+
+#### Features
+
+- **Automatic Validation**: Checks all scores, awards, and team data before generating script
+- **HTML Output**: Generates formatted ceremony script with proper headings and formatting
+- **Dual Emcee Mode**: Enable by setting cell F2 to TRUE in the "Team and Program Information" sheet
+  - When enabled, alternating lightblue/yellow highlighting on each paragraph
+  - Helps two emcees track who reads next
+  - Controlled at runtime - no need to regenerate config files
+- **Award Integration**: Automatically populates award winners from OJS files
+- **Division Support**: Handles both single and dual-division tournaments
+
+#### Dual Emcee Highlighting
+
+To enable dual emcee highlighting:
+1. Open any OJS file for the tournament
+2. Go to "Team and Program Information" worksheet
+3. Set cell F2 to TRUE
+4. Run the ceremony script generator
+
+The generator checks all OJS files - if ANY file has F2=TRUE, highlighting is enabled.
+
+#### Command-Line Options
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--verbose` | `-v` | Enable verbose logging (INFO level) |
+| `--debug` | `-d` | Enable debug logging (DEBUG level, implies --verbose) |
 
 ## Modes
 
@@ -129,51 +183,80 @@ Edit `season.json` to configure:
     - Windows: `"C:/tournaments"` or `"C:/Users/username/Documents/tournaments"`
     - Mac: `"/Users/username/Documents/tournaments"`
     - Linux: `"/home/username/tournaments"`
+- `copy_file_list`: Files to copy into each tournament folder
+  - **Note**: Script templates are handled automatically based on divisions setting:
+    - `script_template.html.jinja` and `script_template-with-divisions.html.jinja` should NOT be in this list
+    - MAESTRO automatically copies the correct template variant based on `using_divisions` setting
+    - The copied file is always named `script_template.html.jinja` in the tournament folder
+    - TOAST (ceremony generator) always uses `script_template.html.jinja` regardless of divisions
   - ⚠️ **Don't use backslashes** `\` - they require escaping in JSON as `\\`
 - `copy_file_list`: Additional files to copy to each tournament folder
 
 ## Logs
 
-Log files are automatically created with timestamps:
+Log files are automatically created with timestamps in the script directory:
 
-- **Location**: Same directory as the script
+### Tournament Builder Logs
 - **Format**: `tournament_builder_YYYYMMDD_HHMMSS.log`
+- **Location**: `2025-all/` directory
 - **Contents**: Full debug information (even in quiet mode)
-- **Retention**: Manual cleanup (files are not auto-deleted)
+
+### Ceremony Generator Logs
+- **Format**: `ceremony_generator_YYYYMMDD_HHMMSS.log`
+- **Location**: Tournament folder where you run the generator
+- **Contents**: Validation results, data collection, and rendering details
+
+### Log Retention
+- Manual cleanup (files are not auto-deleted)
+- Useful for troubleshooting and audit trails
 
 ### Reading Logs
 
 Use logs to troubleshoot issues:
 
 ```bash
-# View the most recent log
+# View the most recent tournament builder log
 cat tournament_builder_*.log | tail -100
 
-# Search for errors
-grep ERROR tournament_builder_*.log
+# View the most recent ceremony generator log (from tournament folder)
+cat ceremony_generator_*.log | tail -100
 
-# Find specific tournament
+# Search for errors in any log
+grep ERROR *.log
+
+# Find specific tournament in builder logs
 grep "Manassas_1" tournament_builder_*.log
+
+# Check dual emcee status in ceremony logs
+grep "dual_emcee" ceremony_generator_*.log
 ```
 
 ## Project Structure
 
 ```
 2025-all/
-├── build-tournament-folders.py    # Main script
+├── build-tournament-folders.py          # Tournament folder builder
+├── closing-ceremony-script-generator.py # Ceremony script generator
 ├── modules/
 │   ├── __init__.py
-│   ├── constants.py               # Configuration constants
-│   ├── logger.py                  # Logging setup
-│   ├── file_operations.py         # File/folder operations
-│   ├── excel_operations.py        # Excel table read/write
-│   ├── worksheet_setup.py         # OJS worksheet configuration
-│   └── user_feedback.py           # Progress tracking and validation
-├── season.json                    # Season configuration
-├── pyproject.toml                 # Project dependencies
-└── [tournament_folder]/           # Output location (specified in season.json)
+│   ├── constants.py                     # Configuration constants
+│   ├── logger.py                        # Logging setup
+│   ├── file_operations.py               # File/folder operations & tournament config
+│   ├── excel_operations.py              # Excel table read/write
+│   ├── worksheet_setup.py               # OJS worksheet configuration & conditional formatting
+│   ├── user_feedback.py                 # Progress tracking and validation
+│   ├── ceremony_validator.py            # OJS data validation for ceremony scripts
+│   ├── ceremony_data_collector.py       # Extract team/award data from OJS files
+│   └── ceremony_renderer.py             # Jinja2 template rendering
+├── script_template.html.jinja           # Ceremony script template
+├── season.json                          # Season configuration
+├── pyproject.toml                       # Project dependencies
+└── [tournament_folder]/                 # Output location (specified in season.json)
     └── [tournament_name]/
-        ├── [ojs_file].xlsm
+        ├── [ojs_file].xlsm              # OJS spreadsheet with teams and scores
+        ├── tournament_config.json        # Generated tournament configuration
+        ├── [ceremony_script].html        # Generated ceremony script (after running generator)
+        ├── script_template.html.jinja    # Ceremony template (copied here)
         ├── script_maker-win.exe
         ├── script_maker-mac
         └── ...
@@ -181,7 +264,7 @@ grep "Manassas_1" tournament_builder_*.log
 
 ## Troubleshooting
 
-### Common Issues
+### Tournament Builder Issues
 
 **"Could not open tournament file"**
 - Ensure Excel file is closed before running
@@ -200,19 +283,45 @@ grep "Manassas_1" tournament_builder_*.log
 
 **Module import errors**
 - Ensure virtual environment is activated
-- Run `uv pip install -e .` to reinstall dependencies
+- Run `uv sync` to reinstall dependencies
+
+### Ceremony Script Generator Issues
+
+**"Validation errors found"**
+- Review the error messages - they indicate specific OJS data issues
+- Check scores are within valid ranges (Innovation/Robot Design: 0-4, Core Values: 0-3)
+- Verify all award selections match allocated counts
+- Ensure Champion's Rank values are sequential starting from 1
+
+**"Missing critical template variables"**
+- Ensure tournament_config.json exists (run build-tournament-folders first)
+- Check that OJS files have all required award selections
+- Verify advancing teams are marked correctly
+
+**"No highlighting in ceremony script"**
+- Check cell F2 in "Team and Program Information" sheet is set to TRUE
+- Verify the value is boolean TRUE (not text "TRUE")
+- Try running with --debug to see which file enables dual emcee mode
+
+**"Robot game awards not collecting"**
+- Ensure "Robot Game Rank" column has sequential ranks (1, 2, 3...)
+- Check "Max Robot Game Score" column has values
+- Verify Team # and Team Name columns are populated
 
 ### Getting Help
 
 1. **Check the log file** - Contains detailed error information
-2. **Run with `--verbose`** - Shows step-by-step execution
-3. **Use `--interactive`** - See validation summary before processing
-4. **Review error suggestions** - Script provides recovery steps for common issues
+   - Tournament builder: `tournament_builder_YYYYMMDD_HHMMSS.log`
+   - Ceremony generator: `ceremony_generator_YYYYMMDD_HHMMSS.log`
+2. **Run with `--verbose` or `--debug`** - Shows step-by-step execution
+3. **Use `--interactive`** - See validation summary before processing (builder only)
+4. **Review error suggestions** - Scripts provide recovery steps for common issues
 
 ## Development
 
-### Running Tests
+### Installing Dev Dependencies
 
 ```bash
-# Install dev dependencies
-uv pip install -e ".[dev]"
+# Install dev dependencies (pytest, black, ruff)
+uv sync --extra dev
+```

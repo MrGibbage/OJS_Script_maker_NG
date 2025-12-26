@@ -807,7 +807,12 @@ def add_essential_conditional_formats(book: Workbook, num_teams: int) -> None:
         # Rule 9: Robot Game Bronze (Column J)
         if rg_award_count >= 3:
             bronze_fill = PatternFill(start_color="CD7F32", end_color="CD7F32", fill_type="solid")
-            bronze_formula = f'{rg_rank_col}{min_row + 1}>=3'
+            # Bronze should highlight ranks from 3 up to the total robot game award count
+            # For example: if rg_award_count=3, highlight rank 3; if rg_award_count=5, highlight ranks 3-5
+            if rg_award_count == 3:
+                bronze_formula = f'{rg_rank_col}{min_row + 1}=3'
+            else:
+                bronze_formula = f'AND({rg_rank_col}{min_row + 1}>=3,{rg_rank_col}{min_row + 1}<={rg_award_count})'
             bronze_rule = Rule(type="expression", formula=[bronze_formula], stopIfTrue=False)
             bronze_rule.dxf = openpyxl.styles.differential.DifferentialStyle(fill=bronze_fill)
             ws.conditional_formatting.add(rg_rank_range, bronze_rule)

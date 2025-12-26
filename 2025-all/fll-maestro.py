@@ -57,6 +57,21 @@ warnings.simplefilter(action="ignore", category=UserWarning)
 # Initialize colorama
 init()
 
+
+def print_splash():
+    """Print MAESTRO splash screen."""
+    print(f"\n{Fore.CYAN}{'█' * 70}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}█{Style.RESET_ALL}{'  ' * 34}{Fore.CYAN}█{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}█{Style.RESET_ALL}                       {Fore.YELLOW}╔╦╗╔═╗╔═╗╔═╗╔╦╗╦═╗╔═╗{Style.RESET_ALL}                        {Fore.CYAN}█{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}█{Style.RESET_ALL}                       {Fore.YELLOW}║║║╠═╣║╣ ╚═╗ ║ ╠╦╝║ ║{Style.RESET_ALL}                        {Fore.CYAN}█{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}█{Style.RESET_ALL}                       {Fore.YELLOW}╩ ╩╩ ╩╚═╝╚═╝ ╩ ╩╚═╚═╝{Style.RESET_ALL}                        {Fore.CYAN}█{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}█{Style.RESET_ALL}{'  ' * 34}{Fore.CYAN}█{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}█{Style.RESET_ALL}           {Fore.WHITE}Managing All Event Seasons, Tournaments,{Style.RESET_ALL}                 {Fore.CYAN}█{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}█{Style.RESET_ALL}           {Fore.WHITE}Rosters, and OJSs for FIRST LEGO League{Style.RESET_ALL}                  {Fore.CYAN}█{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}█{Style.RESET_ALL}{'  ' * 34}{Fore.CYAN}█{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{'█' * 70}{Style.RESET_ALL}\n")
+
+
 def parse_arguments():
     """Parse command-line arguments.
     
@@ -70,7 +85,8 @@ def parse_arguments():
 Examples:
   %(prog)s                    Run in quiet mode (default)
   %(prog)s --interactive      Run with prompts, validation summary, and confirmations
-  %(prog)s --verbose          Run with debug logging enabled
+  %(prog)s --verbose          Run with INFO-level logging
+  %(prog)s --debug            Run with DEBUG-level logging (most detailed)
   %(prog)s --tournament ABC   Build only tournament with short name 'ABC'
         """
     )
@@ -84,7 +100,13 @@ Examples:
     parser.add_argument(
         '--verbose', '-v',
         action='store_true',
-        help='Verbose mode: enable debug logging and detailed output'
+        help='Verbose mode: enable INFO-level logging and detailed output'
+    )
+    
+    parser.add_argument(
+        '--debug', '-d',
+        action='store_true',
+        help='Debug mode: enable DEBUG-level logging (implies --verbose)'
     )
     
     parser.add_argument(
@@ -241,18 +263,28 @@ def main():
     # Quiet mode is default; interactive is opt-in
     quiet = not args.interactive
     
+    # Print splash screen (always shown)
+    print_splash()
+    
     # Determine script directory FIRST
     if getattr(sys, "frozen", False):
         dir_path = os.path.dirname(sys.executable)
     elif __file__:
         dir_path = os.path.dirname(__file__)
     
+    # Determine logging level (debug implies verbose)
+    log_debug = args.debug or args.verbose
+    
     # Set up logger with script directory
     global logger
-    logger = setup_logger("ojs_builder", debug=args.verbose, log_dir=dir_path)
+    logger = setup_logger("ojs_builder", debug=log_debug, log_dir=dir_path)
+    
+    if args.debug:
+        logger.info("Debug logging enabled")
+    elif args.verbose:
+        logger.info("Verbose logging enabled")
     
     if not quiet:
-        print_section_header("OJS TOURNAMENT FOLDER BUILDER")
         print_info(f"Working directory: {dir_path}")
     else:
         logger.info("Starting tournament folder builder")
@@ -350,8 +382,19 @@ def main():
     # Read season info
     try:
         dictSeasonInfo = read_table_as_dict(tournament_file, "SeasonInfo", "SeasonInfo")
-        using_divisions = dictSeasonInfo["Divisions"]
-        logger.info(f"Using divisions: {using_divisions}")
+        divisions_value = dictSeasonInfo["Divisions"]
+        
+        # Convert to boolean (handle string, bool, int)
+        if isinstance(divisions_value, bool):
+            using_divisions = divisions_value
+        elif isinstance(divisions_value, str):
+            using_divisions = divisions_value.upper() in ['TRUE', 'YES', '1']
+        elif isinstance(divisions_value, (int, float)):
+            using_divisions = bool(divisions_value)
+        else:
+            using_divisions = False
+        
+        logger.info(f"Using divisions: {using_divisions} (from value: {divisions_value})")
     except Exception as e:
         print_error(logger, "Could not read the SeasonInfo table", e)
 
@@ -550,7 +593,7 @@ def main():
             progress.update("Folder created")
         
         # Copy files
-        copy_files(row, dir_path, template_file, extrafilelist, tournament_folder)
+        copy_files(row, dir_path, template_file, extrafilelist, tournament_folder, using_divisions)
         if not quiet:
             progress.update("Files copied")
 
