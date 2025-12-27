@@ -64,103 +64,83 @@
 {{ n }}{%- if mod100 in [11, 12, 13] -%}th{%- elif mod10 == 1 -%}st{%- elif mod10 == 2 -%}nd{%- elif mod10 == 3 -%}rd{%- else -%}th{%- endif -%}
 {%- endmacro %}
 
-{% macro row_label(base, idx, labels) -%}
-{%- set pos = ordinal(idx + 1) -%}
-{%- if labels is defined and labels|length > idx and labels[idx] -%}
-{{ base }}, {{ labels[idx] }}
-{%- else -%}
-{{ base }}, {{ pos }} Place
-{%- endif -%}
-{%- endmacro %}
-
 <h2>Robot Performance Awards</h2>
 <table>
     <tr><th class="award-col">Award</th><th class="teamnum-col">Team #</th><th class="teamname-col">Team Name</th></tr>
-    {% set rg = namespace(entry=None) %}
-    {% for award in awards_config %}
-        {% if award.ID == 'P_AWD_RG' %}
-            {% set rg.entry = award %}
-        {% endif %}
-    {% endfor %}
-    {% if rg.entry %}
-        {% set labels = rg.entry.get('Labels', []) %}
-        {% if rg.entry.get('DivAwd', False) %}
-            {% set d1_count = rg.entry.get('D1_count', 0)|int %}
-            {% set d2_count = rg.entry.get('D2_count', 0)|int %}
-            {% for i in range(d1_count) %}
-            <tr>
-                <td class="award-col">{{ row_label('Division 1 Robot Performance Award', i, labels) }}</td>
-                <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
-                <td class="teamname-col"><span class="blank">&nbsp;</span></td>
-            </tr>
-            {% endfor %}
-            {% for i in range(d2_count) %}
-            <tr>
-                <td class="award-col">{{ row_label('Division 2 Robot Performance Award', i, labels) }}</td>
-                <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
-                <td class="teamname-col"><span class="blank">&nbsp;</span></td>
-            </tr>
-            {% endfor %}
-        {% else %}
-            {% set tourn_count = rg.entry.get('TournCount', 0)|int %}
-            {% for i in range(tourn_count) %}
-            <tr>
-                <td class="award-col">{{ row_label('Robot Performance Award', i, labels) }}</td>
-                <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
-                <td class="teamname-col"><span class="blank">&nbsp;</span></td>
-            </tr>
-            {% endfor %}
-        {% endif %}
+    {% if rows_robot and rows_robot|length > 0 %}
+        {% for label in rows_robot %}
+        <tr>
+            <td class="award-col">{{ label }}</td>
+            <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
+            <td class="teamname-col"><span class="blank">&nbsp;</span></td>
+        </tr>
+        {% endfor %}
     {% else %}
         <tr><td colspan="3">No Robot Performance awards configured.</td></tr>
     {% endif %}
 </table>
 
-<h2>Judged Awards</h2>
+<h2>Judged Awards (Innovation Project, Robot Design, Core Values)</h2>
 <table>
     <tr><th class="award-col">Award</th><th class="teamnum-col">Team #</th><th class="teamname-col">Team Name</th></tr>
-    {% set ns = namespace(has_rows=false) %}
-    {% for award in awards_config if award.ID != 'P_AWD_RG' %}
-        {% set labels = award.get('Labels', []) %}
-        {% if award.get('DivAwd', False) %}
-            {% set d1_count = award.get('D1_count', 0)|int %}
-            {% set d2_count = award.get('D2_count', 0)|int %}
-            {% if d1_count > 0 %}
-                {% set ns.has_rows = true %}
-                {% for i in range(d1_count) %}
-                <tr>
-                    <td class="award-col">{{ row_label('Division 1 ' ~ award.Name, i, labels) }}</td>
-                    <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
-                    <td class="teamname-col"><span class="blank">&nbsp;</span></td>
-                </tr>
-                {% endfor %}
-            {% endif %}
-            {% if d2_count > 0 %}
-                {% set ns.has_rows = true %}
-                {% for i in range(d2_count) %}
-                <tr>
-                    <td class="award-col">{{ row_label('Division 2 ' ~ award.Name, i, labels) }}</td>
-                    <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
-                    <td class="teamname-col"><span class="blank">&nbsp;</span></td>
-                </tr>
-                {% endfor %}
-            {% endif %}
-        {% else %}
-            {% set tourn_count = award.get('TournCount', 0)|int %}
-            {% if tourn_count > 0 %}
-                {% set ns.has_rows = true %}
-                {% for i in range(tourn_count) %}
-                <tr>
-                    <td class="award-col">{{ row_label(award.Name, i, labels) }}</td>
-                    <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
-                    <td class="teamname-col"><span class="blank">&nbsp;</span></td>
-                </tr>
-                {% endfor %}
-            {% endif %}
-        {% endif %}
-    {% endfor %}
-    {% if not ns.has_rows %}
+    {% if rows_core and rows_core|length > 0 %}
+        {% for label in rows_core %}
+        <tr>
+            <td class="award-col">{{ label }}</td>
+            <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
+            <td class="teamname-col"><span class="blank">&nbsp;</span></td>
+        </tr>
+        {% endfor %}
+    {% else %}
         <tr><td colspan="3">No judged awards configured.</td></tr>
+    {% endif %}
+</table>
+
+<h2>Judges Awards</h2>
+<table>
+    <tr><th class="award-col">Award</th><th class="teamnum-col">Team #</th><th class="teamname-col">Team Name</th></tr>
+    {% if rows_judges and rows_judges|length > 0 %}
+        {% for label in rows_judges %}
+        <tr>
+            <td class="award-col">{{ label }}</td>
+            <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
+            <td class="teamname-col"><span class="blank">&nbsp;</span></td>
+        </tr>
+        {% endfor %}
+    {% else %}
+        <tr><td colspan="3">No Judges Awards configured.</td></tr>
+    {% endif %}
+</table>
+
+<h2>Other Judged Awards</h2>
+<table>
+    <tr><th class="award-col">Award</th><th class="teamnum-col">Team #</th><th class="teamname-col">Team Name</th></tr>
+    {% if rows_other and rows_other|length > 0 %}
+        {% for label in rows_other %}
+        <tr>
+            <td class="award-col">{{ label }}</td>
+            <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
+            <td class="teamname-col"><span class="blank">&nbsp;</span></td>
+        </tr>
+        {% endfor %}
+    {% else %}
+        <tr><td colspan="3">No other judged awards configured.</td></tr>
+    {% endif %}
+</table>
+
+<h2>Champions</h2>
+<table>
+    <tr><th class="award-col">Award</th><th class="teamnum-col">Team #</th><th class="teamname-col">Team Name</th></tr>
+    {% if rows_champs and rows_champs|length > 0 %}
+        {% for label in rows_champs %}
+        <tr>
+            <td class="award-col">{{ label }}</td>
+            <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
+            <td class="teamname-col"><span class="blank">&nbsp;</span></td>
+        </tr>
+        {% endfor %}
+    {% else %}
+        <tr><td colspan="3">No Champions awards configured.</td></tr>
     {% endif %}
 </table>
 
@@ -180,6 +160,17 @@
     {% else %}
         <tr><td colspan="3">No advancing teams configured.</td></tr>
     {% endif %}
+    <!-- Alternates (two rows for division tournaments) -->
+    <tr>
+        <td class="award-col">Division 1 Alternate</td>
+        <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
+        <td class="teamname-col"><span class="blank">&nbsp;</span></td>
+    </tr>
+    <tr>
+        <td class="award-col">Division 2 Alternate</td>
+        <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
+        <td class="teamname-col"><span class="blank">&nbsp;</span></td>
+    </tr>
 </table>
 </body>
 </html>

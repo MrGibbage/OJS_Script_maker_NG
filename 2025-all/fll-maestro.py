@@ -744,11 +744,80 @@ def main():
                 fillin_template_file = 'fillin_template.html.jinja'
                 fillin_output = os.path.join(newpath, 'fillin_form.html')
 
+                # Prepare fill-in rows grouped by award type
+                info_section = tourn_config.get('INFO', {})
+                awards_cfg = tourn_config.get('AWARDS', [])
+                using_divs = info_section.get('using_divisions', False)
+
+                def ordinal(n: int) -> str:
+                    n = int(n)
+                    mod100, mod10 = n % 100, n % 10
+                    if mod100 in (11, 12, 13):
+                        suffix = "th"
+                    elif mod10 == 1:
+                        suffix = "st"
+                    elif mod10 == 2:
+                        suffix = "nd"
+                    elif mod10 == 3:
+                        suffix = "rd"
+                    else:
+                        suffix = "th"
+                    return f"{n}{suffix}"
+
+                def build_label(base: str, idx: int, labels: list[str]) -> str:
+                    if labels and len(labels) > idx and labels[idx]:
+                        return f"{base}, {labels[idx]}"
+                    return f"{base}, {ordinal(idx + 1)} Place"
+
+                def expand_award(award: dict) -> list[str]:
+                    labels = award.get('Labels', [])
+                    rows: list[str] = []
+                    if using_divs and award.get('DivAwd', False):
+                        d1 = int(award.get('D1_count', 0))
+                        d2 = int(award.get('D2_count', 0))
+                        for i in range(d1):
+                            rows.append(build_label(f"Division 1 {award.get('Name', '')}", i, labels))
+                        for i in range(d2):
+                            rows.append(build_label(f"Division 2 {award.get('Name', '')}", i, labels))
+                    else:
+                        count = int(award.get('TournCount', 0))
+                        for i in range(count):
+                            rows.append(build_label(award.get('Name', ''), i, labels))
+                    return rows
+
+                # Group awards
+                rows_robot: list[str] = []
+                rows_core: list[str] = []      # IP / RD / CV
+                rows_judges: list[str] = []    # J_AWD_Judges*
+                rows_other: list[str] = []     # Other J_AWD_* (non-champ, non-core, non-judges)
+                rows_champs: list[str] = []    # Champions
+
+                for award in awards_cfg:
+                    award_id = award.get('ID', '')
+                    if not award_id:
+                        continue
+
+                    if award_id == 'P_AWD_RG':
+                        rows_robot.extend(expand_award(award))
+                    elif award_id in {'J_AWD_IP', 'J_AWD_RD', 'J_AWD_CV'}:
+                        rows_core.extend(expand_award(award))
+                    elif award_id.startswith('J_AWD_Judges'):
+                        rows_judges.extend(expand_award(award))
+                    elif award_id.startswith('J_AWD_CHAMP'):
+                        rows_champs.extend(expand_award(award))
+                    elif award_id.startswith('J_AWD_'):
+                        rows_other.extend(expand_award(award))
+
                 template_data = {
-                    'tournament_name': tourn_config.get('INFO', {}).get('tournament_long_name', ''),
-                    'awards_config': tourn_config.get('AWARDS', []),
+                    'tournament_name': info_section.get('tournament_long_name', ''),
+                    'rows_robot': rows_robot,
+                    'rows_core': rows_core,
+                    'rows_judges': rows_judges,
+                    'rows_other': rows_other,
+                    'rows_champs': rows_champs,
                     'adv_count': row.get(COL_ADVANCING, 0),
                     'division_label': row.get(COL_DIVISION, ''),
+                    'using_divisions': using_divs,
                 }
 
                 errors, warnings = renderer.validate_template_variables(fillin_template_file, template_data, set())

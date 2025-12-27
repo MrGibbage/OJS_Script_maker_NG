@@ -14,6 +14,7 @@ from .constants import (
     COL_OJS_FILENAME, 
     COL_DATE, 
     COL_DIVISION,
+    COL_ADVANCING,
     COL_COLUMN_NAME, 
     COL_DIV_AWARD,
     COL_SCRIPT_TAG_D1,
@@ -260,6 +261,14 @@ def generate_tournament_config(
             existing_config = json.load(f)
     else:
         existing_config = None
+
+    current_div = tournament.get(COL_DIVISION, "") if using_divisions else ""
+
+    raw_adv_count = tournament.get(COL_ADVANCING, 0)
+    try:
+        adv_count = int(raw_adv_count) if not pd.isna(raw_adv_count) else 0
+    except (ValueError, TypeError):
+        adv_count = 0
     
     # Build INFO section (only on first pass)
     if existing_config is None:
@@ -327,6 +336,17 @@ def generate_tournament_config(
             ojs_book.close()
     except Exception as e:
         logger.debug(f"Could not read dual_emcee from {current_ojs_path}: {e}")
+
+    # Add advancing counts to INFO (per-division or overall)
+    if using_divisions:
+        if current_div == "D1":
+            info_section["advancing_count_d1"] = adv_count
+        elif current_div == "D2":
+            info_section["advancing_count_d2"] = adv_count
+        else:
+            info_section["advancing_count"] = adv_count
+    else:
+        info_section["advancing_count"] = adv_count
     
     # Build AWARDS section - use dictionary for easier merging
     awards_dict = {}
@@ -337,9 +357,6 @@ def generate_tournament_config(
     if existing_config:
         for award in existing_config.get("AWARDS", []):
             awards_dict[award["ID"]] = award
-    
-    # Get current division (if applicable)
-    current_div = tournament.get(COL_DIVISION, "") if using_divisions else ""
     
     # Process all award columns from this tournament row
     award_columns = [col for col in tournament.index if col.startswith(AWARD_COLUMN_PREFIX_JUDGED) or col == AWARD_COLUMN_ROBOT_GAME]
