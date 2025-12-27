@@ -160,11 +160,18 @@ Edit `season.json` to configure:
   "filename": "2025-FLL-Qualifier-Tournaments.xlsx",
   "tournament_template": "2025-Qualifier-Template.xlsm",
   "tournament_folder": "C:/Users/username/Documents/tournaments",
-  "copy_file_list": [
-    "script_maker-win.exe",
-    "script_maker-mac",
-    "script_template.html.jinja",
-    "instructions.pdf"
+  "copy_file_list_common": [
+    {"source": "script_maker-win.exe", "dest": "script_maker-win.exe"},
+    {"source": "script_maker-mac", "dest": "script_maker-mac"},
+    {"source": "instructions.pdf", "dest": "instructions.pdf"}
+  ],
+  "copy_file_list_divisions_only": [
+    {"source": "script_template-with-divisions.html.jinja", "dest": "script_template.html.jinja"},
+    {"source": "summary_template-with-divisions.html.jinja", "dest": "summary_template.html.jinja"}
+  ],
+  "copy_file_list_no_divisions_only": [
+    {"source": "script_template.html.jinja", "dest": "script_template.html.jinja"},
+    {"source": "summary_template.html.jinja", "dest": "summary_template.html.jinja"}
   ]
 }
 ```
@@ -183,12 +190,15 @@ Edit `season.json` to configure:
     - Windows: `"C:/tournaments"` or `"C:/Users/username/Documents/tournaments"`
     - Mac: `"/Users/username/Documents/tournaments"`
     - Linux: `"/home/username/tournaments"`
-- `copy_file_list`: Files to copy into each tournament folder
-  - **Note**: Script templates are handled automatically based on divisions setting:
-    - `script_template.html.jinja` and `script_template-with-divisions.html.jinja` should NOT be in this list
-    - MAESTRO automatically copies the correct template variant based on `using_divisions` setting
-    - The copied file is always named `script_template.html.jinja` in the tournament folder
-    - TOAST (ceremony generator) always uses `script_template.html.jinja` regardless of divisions
+- `copy_file_list_common`: Files always copied to every tournament folder
+  - Each entry is a dict with `source` (filename in MAESTRO directory) and `dest` (filename in tournament folder)
+  - Common files like executables and PDFs that don't vary by division setting
+- `copy_file_list_divisions_only`: Files only copied when `using_divisions=True`
+  - Typically includes division-specific templates (e.g., `script_template-with-divisions.html.jinja`)
+  - Source and dest can differ to provide consistent naming in tournament folders
+- `copy_file_list_no_divisions_only`: Files only copied when `using_divisions=False`
+  - Typically includes non-division templates (e.g., `script_template.html.jinja`)
+  - Allows TOAST to always use the same filenames regardless of division setting
   - ⚠️ **Don't use backslashes** `\` - they require escaping in JSON as `\\`
 - `copy_file_list`: Additional files to copy to each tournament folder
 

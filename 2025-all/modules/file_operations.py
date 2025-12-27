@@ -115,19 +115,32 @@ def copy_files(
     item: pd.Series,
     dir_path: str,
     template_file: str,
-    extrafilelist: list[str],
+    common_files: list[dict],
+    divisions_only_files: list[dict],
+    no_divisions_only_files: list[dict],
     tournament_folder: str,
     using_divisions: bool = False
 ) -> None:
     """Copy extra files and OJS template into tournament folder.
     
+    Handles three types of file lists:
+    - common_files: Always copied (e.g., executables, PDFs)
+    - divisions_only_files: Only copied when using_divisions=True
+    - no_divisions_only_files: Only copied when using_divisions=False
+    
+    Each file list contains dicts with {"source": "...", "dest": "..."}.
+    This allows source files to have distinct names (e.g., script_template-with-divisions.html.jinja)
+    while destination files have consistent names (e.g., script_template.html.jinja).
+    
     Args:
         item: Tournament row with 'Short Name' and 'OJS_FileName'
         dir_path: Base directory containing source files
         template_file: Path to OJS template workbook
-        extrafilelist: List of filenames to copy
+        common_files: List of {source, dest} dicts for files always copied
+        divisions_only_files: List of {source, dest} dicts for division tournaments only
+        no_divisions_only_files: List of {source, dest} dicts for non-division tournaments only
         tournament_folder: Root folder where tournament subfolders are created
-        using_divisions: Whether the tournament uses divisions (affects template choice)
+        using_divisions: Whether the tournament uses divisions
         
     Raises:
         Exits via print_error if any copy operation fails
@@ -139,61 +152,60 @@ def copy_files(
         print_error(logger, f"Tournament row missing required field '{COL_OJS_FILENAME}' for {item[COL_SHORT_NAME]}")
     
     logger.info(f"Copying files for tournament: {item[COL_SHORT_NAME]}")
+    dest_folder = os.path.join(tournament_folder, item[COL_SHORT_NAME])
     
-    for filename in extrafilelist:
-        # Skip script templates - we'll handle them separately based on divisions
-        if filename.startswith('script_template') and filename.endswith('.html.jinja'):
-            continue
+    # Determine which file lists to process
+    files_to_copy = common_files.copy()
+    if using_divisions:
+        files_to_copy.extend(divisions_only_files)
+        logger.debug(f"Using divisions mode: copying {len(divisions_only_files)} division-specific files")
+    else:
+        files_to_copy.extend(no_divisions_only_files)
+        logger.debug(f"Using non-divisions mode: copying {len(no_divisions_only_files)} non-division-specific files")
+    
+    # Copy all files
+    for file_mapping in files_to_copy:
         try:
-            source_path = os.path.join(dir_path, filename)
+            source_file = file_mapping["source"]
+            dest_file = file_mapping["dest"]
+            
+            source_path = os.path.join(dir_path, source_file)
             if not os.path.exists(source_path):
                 print_error(
                     logger,
                     f"Source file not found: {source_path}",
                     error_type='missing_file',
-                    context={'filename': filename, 'directory': dir_path}
+                    context={'filename': source_file, 'directory': dir_path}
                 )
-                
-            dest_folder = os.path.join(tournament_folder, item[COL_SHORT_NAME])
-            shutil.copy(source_path, dest_folder)
-            logger.debug(f"Copied {filename} to {dest_folder}")
+            
+            dest_path = os.path.join(dest_folder, dest_file)
+            
+            # Log if overwriting existing file
+            if os.path.exists(dest_path):
+                logger.debug(f"Overwriting existing file: {dest_file}")
+            
+            shutil.copy(source_path, dest_path)
+            logger.debug(f"Copied {source_file} → {dest_file}")
+            
+        except KeyError as e:
+            print_error(
+                logger,
+                f"File mapping missing required key {e}: {file_mapping}",
+                error_type='invalid_config',
+                context={'file_mapping': file_mapping}
+            )
         except PermissionError as e:
             print_error(
                 logger,
-                f"Permission denied copying file '{filename}' to {dest_folder}",
+                f"Permission denied copying file '{source_file}' to {dest_folder}",
                 e,
                 error_type='permission_denied',
-                context={'filename': filename}
+                context={'filename': source_file}
             )
         except Exception as e:
-            print_error(logger, f"Could not copy file '{filename}' to {dest_folder}", e)
+            print_error(logger, f"Could not copy file '{source_file}' to '{dest_path}'", e)
             
-    logger.info("Extra files copied successfully")
-    
-    # Copy the appropriate ceremony script template based on divisions
-    # Note: We maintain two separate template files in the source directory:
-    #   - script_template.html.jinja (for non-division tournaments)
-    #   - script_template-with-divisions.html.jinja (for division tournaments)
-    # But we always copy the correct one to 'script_template.html.jinja' in the
-    # tournament folder, so TOAST doesn't need to know which variant to use.
-    try:
-        dest_folder = os.path.join(tournament_folder, item[COL_SHORT_NAME])
-        
-        if using_divisions:
-            source_template = os.path.join(dir_path, 'script_template-with-divisions.html.jinja')
-            logger.debug("Using divisions template: script_template-with-divisions.html.jinja")
-        else:
-            source_template = os.path.join(dir_path, 'script_template.html.jinja')
-            logger.debug("Using single-division template: script_template.html.jinja")
-        
-        if not os.path.exists(source_template):
-            logger.warning(f"Script template not found: {source_template}, skipping")
-        else:
-            dest_template = os.path.join(dest_folder, 'script_template.html.jinja')
-            shutil.copy(source_template, dest_template)
-            logger.debug(f"Copied script template to {dest_template}")
-    except Exception as e:
-        logger.warning(f"Could not copy script template: {e}")
+    logger.info(f"Copied {len(files_to_copy)} files successfully")
     
     # Copy OJS template
     try:

@@ -5,12 +5,21 @@
   "filename": "2025-FLL-Qualifier-Tournaments.xlsx",
   "notes_template": "This is the template OJS that will be copied into each of the tournament folders (after being modified for each tournament)",
   "tournament_template": "2025-Qualifier-Template.xlsm",
-  "notes_copy": "Other files to be copied into each of the tournament sub-folders when they are created. Type this as a list separated by commas. The OJS will automatically be copied so it does not need to be on this list.",
-  "copy_file_list": [
-    "script_maker-win.exe",
-    "script_maker-mac",
-    "script_template.html.jinja",
-    "instructions.pdf"
+  "notes_copy_file_lists": "Files to copy into tournament folders. Common files are always copied. Division-specific files are copied based on using_divisions setting. Each entry maps source filename to destination filename.",
+  "copy_file_list_common": [
+    {"source": "script_maker-win.exe", "dest": "script_maker-win.exe"},
+    {"source": "script_maker-mac", "dest": "script_maker-mac"},
+    {"source": "instructions.pdf", "dest": "instructions.pdf"}
+  ],
+  "copy_file_list_divisions_only": [
+    {"source": "script_template-with-divisions.html.jinja", "dest": "script_template.html.jinja"},
+    {"source": "summary_template-with-divisions.html.jinja", "dest": "summary_template.html.jinja"},
+    {"source": "fillin_template-with-divisions.html.jinja", "dest": "fillin_template.html.jinja"}
+  ],
+  "copy_file_list_no_divisions_only": [
+    {"source": "script_template.html.jinja", "dest": "script_template.html.jinja"},
+    {"source": "summary_template.html.jinja", "dest": "summary_template.html.jinja"},
+    {"source": "fillin_template.html.jinja", "dest": "fillin_template.html.jinja"}
   ],
   "notes_tournament_folder": "IMPORTANT: Set this to the folder where you want all tournament folders to be created. Use forward slashes (/) for paths on ALL platforms (Windows, Mac, Linux). The folder will be created automatically if it doesn't exist. Examples: Windows: 'C:/tournaments' or 'C:/Users/YourName/Documents/tournaments', Mac/Linux: '/Users/YourName/tournaments'",
   "tournament_folder": "C:/github-projects/OJS_Script_maker_NG/2025-all/tournaments"

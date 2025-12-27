@@ -48,8 +48,8 @@ class CeremonyRenderer:
             with open(f"{self.template_dir}/{template_filename}", 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # Match {{ variable_name }} patterns
-            pattern = r'\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}'
+            # Match {{ variable_name }} or {{ variable_name|filter }} patterns
+            pattern = r'\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\|[^}]*)?\}\}'
             variables = set(re.findall(pattern, content))
             
             logger.debug(f"Found {len(variables)} variables in template: {sorted(variables)}")
@@ -78,7 +78,11 @@ class CeremonyRenderer:
         provided_set = set(provided_vars.keys())
         
         # Internal variables added by renderer - exclude from validation
-        internal_vars = {'bg_color_0', 'bg_color_1'}
+        # Internal/helper variables we don't require callers to provide
+        internal_vars = {
+            'bg_color_0', 'bg_color_1',  # renderer-provided colors
+            'base', 'n', 'pos'           # macro params used in fill-in templates
+        }
         
         missing = template_vars - provided_set - internal_vars
         

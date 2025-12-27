@@ -1,0 +1,122 @@
+<!--
+  FILL-IN AWARDS FORM TEMPLATE - NON-DIVISION TOURNAMENTS
+
+  This template is used for tournaments WITHOUT divisions.
+  When MAESTRO builds a tournament folder, it automatically:
+  - Copies this file if using_divisions = False
+  - OR copies fillin_template-with-divisions.html.jinja if using_divisions = True
+  - The copied file is always named 'fillin_template.html.jinja' in the tournament folder
+
+  TOAST renders this template to create a printable backup form. It lists every
+  allocated award with blank spaces for team number and team name so the ceremony
+  can continue even if computers are unavailable.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>{{ tournament_name }} Fill-In Awards Form</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        line-height: 1.5;
+        margin: 24px;
+    }
+    h1, h2 {
+        margin-bottom: 8px;
+    }
+    p.lead {
+        margin-top: 0;
+        margin-bottom: 16px;
+        color: #444;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 24px;
+    }
+    th {
+        text-align: left;
+        border-bottom: 2px solid #000;
+        padding: 6px 4px;
+    }
+    td {
+        padding: 6px 4px;
+        vertical-align: top;
+    }
+    .award-col { width: 55%; }
+    .teamnum-col { width: 15%; }
+    .teamname-col { width: 30%; }
+    .blank {
+        display: inline-block;
+        min-width: 120px;
+        border-bottom: 1px solid #555;
+    }
+    .blank.short { min-width: 70px; }
+</style>
+</head>
+<body>
+<h1>{{ tournament_name }} Fill-In Awards Form</h1>
+<p class="lead">Use this sheet to write in winners if the computer is unavailable. Award names below are pulled from the tournament configuration.</p>
+
+{% macro ordinal(n) -%}
+{%- set n = n|int -%}
+{%- set mod100 = n % 100 -%}
+{%- set mod10 = n % 10 -%}
+{{ n }}{%- if mod100 in [11, 12, 13] -%}th{%- elif mod10 == 1 -%}st{%- elif mod10 == 2 -%}nd{%- elif mod10 == 3 -%}rd{%- else -%}th{%- endif -%}
+{%- endmacro %}
+
+{% macro row_label(base, idx, labels) -%}
+{%- set pos = ordinal(idx + 1) -%}
+{%- if labels is defined and labels|length > idx and labels[idx] -%}
+{{ base }}, {{ labels[idx] }}
+{%- else -%}
+{{ base }}, {{ pos }} Place
+{%- endif -%}
+{%- endmacro %}
+
+<h2>Robot Performance Awards</h2>
+<table>
+    <tr><th class="award-col">Award</th><th class="teamnum-col">Team #</th><th class="teamname-col">Team Name</th></tr>
+    {% set rg = namespace(entry=None) %}
+    {% for award in awards_config %}
+        {% if award.ID == 'P_AWD_RG' %}
+            {% set rg.entry = award %}
+        {% endif %}
+    {% endfor %}
+    {% if rg.entry %}
+        {% set rg_count = rg.entry.get('TournCount', 0)|int %}
+        {% for i in range(rg_count) %}
+        <tr>
+            <td class="award-col">{{ row_label('Robot Performance Award', i, rg.entry.get('Labels', [])) }}</td>
+            <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
+            <td class="teamname-col"><span class="blank">&nbsp;</span></td>
+        </tr>
+        {% endfor %}
+    {% else %}
+        <tr><td colspan="3">No Robot Performance awards configured.</td></tr>
+    {% endif %}
+</table>
+
+<h2>Judged Awards</h2>
+<table>
+    <tr><th class="award-col">Award</th><th class="teamnum-col">Team #</th><th class="teamname-col">Team Name</th></tr>
+    {% set ns = namespace(has_rows=false) %}
+    {% for award in awards_config if award.ID != 'P_AWD_RG' %}
+        {% set count = award.get('TournCount', 0)|int %}
+        {% if count > 0 %}
+            {% set ns.has_rows = true %}
+            {% for i in range(count) %}
+            <tr>
+                <td class="award-col">{{ row_label(award.Name, i, award.get('Labels', [])) }}</td>
+                <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
+                <td class="teamname-col"><span class="blank">&nbsp;</span></td>
+            </tr>
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+    {% if not ns.has_rows %}
+        <tr><td colspan="3">No judged awards configured.</td></tr>
+    {% endif %}
+</table>
+</body>
+</html>

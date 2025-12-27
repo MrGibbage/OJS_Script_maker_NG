@@ -86,11 +86,12 @@ def load_config(config_path: str) -> dict:
         print_error(logger, f"Error loading configuration: {e}")
 
 
-def generate_output_filename(ojs_filenames: list) -> str:
+def generate_output_filename(ojs_filenames: list, suffix: str = "closing-ceremony") -> str:
     """Generate output filename based on OJS filenames.
     
     Args:
         ojs_filenames: List of OJS filenames from config
+        suffix: Suffix to add before .html (e.g., "closing-ceremony" or "summary")
         
     Returns:
         Output HTML filename
@@ -101,8 +102,8 @@ def generate_output_filename(ojs_filenames: list) -> str:
     # Remove -div1 or -div2 suffix and .xlsm extension
     base_name = base_name.replace('-div1.xlsm', '').replace('-div2.xlsm', '').replace('.xlsm', '')
     
-    # Add closing-ceremony suffix
-    output_name = f"{base_name}-closing-ceremony.html"
+    # Add suffix
+    output_name = f"{base_name}-{suffix}.html"
     
     logger.debug(f"Generated output filename: {output_name}")
     return output_name
@@ -267,6 +268,7 @@ def main():
     template_data['tournament_name'] = info['tournament_long_name']
     template_data['using_divisions'] = 1 if using_divisions else 0
     template_data['dual_emcee'] = dual_emcee  # Pass to renderer
+    template_data['awards_config'] = config['AWARDS']
     
     # Collect team lists
     print("Collecting team lists...")
@@ -290,6 +292,10 @@ def main():
         if len(ojs_filenames) > 1:
             adv_d2 = collector.collect_advancing_teams(os.path.join(script_dir, ojs_filenames[1]), "Division 2")
             template_data['ADV_D2'] = collector.format_team_list_as_html(adv_d2)
+    else:
+        # Non-division tournaments
+        adv_teams = collector.collect_advancing_teams(os.path.join(script_dir, ojs_filenames[0]))
+        template_data['ADV'] = collector.format_team_list_as_html(adv_teams)
     
     # Collect awards
     print("Collecting award winners...")
@@ -322,6 +328,16 @@ def main():
                         tag = award.get('ScriptTagD2', '')
                         if tag:
                             template_data[tag] = collector.format_winners_as_html(rg_d2, include_score=True)
+            else:
+                # Non-division Robot Game awards
+                tourn_count = int(award.get('TournCount', 0))
+                if tourn_count > 0:
+                    rg_winners = collector.collect_robot_game_awards(
+                        os.path.join(script_dir, ojs_filenames[0]), tourn_count, ""
+                    )
+                    tag = award.get('ScriptTagNoDiv', '')
+                    if tag:
+                        template_data[tag] = collector.format_winners_as_html(rg_winners, include_score=True)
         else:
             # Judged awards
             if using_divisions and is_div_award:
@@ -410,15 +426,22 @@ def main():
         for warning in collector.warnings:
             print(f"  {warning}")
     
-    # Render template
-    print_header("RENDERING CEREMONY SCRIPT")
+    # Render templates
+    print_header("RENDERING CEREMONY OUTPUTS")
     
     renderer = CeremonyRenderer(script_dir)
-    template_file = 'script_template.html.jinja'
     
-    # Validate template variables
+    # Track overall success
+    all_success = True
+    output_files = []
+    
+    # Render ceremony script
+    print(f"{Fore.CYAN}Rendering ceremony script...{Style.RESET_ALL}")
+    script_template_file = 'script_template.html.jinja'
+    
+    # Validate script template variables
     critical_vars = {'J_AWD_CHAMP_D1', 'J_AWD_CHAMP_D2', 'ADV_D1', 'ADV_D2'}
-    errors, warnings = renderer.validate_template_variables(template_file, template_data, critical_vars)
+    errors, warnings = renderer.validate_template_variables(script_template_file, template_data, critical_vars)
     
     if errors:
         print(f"{Fore.RED}Missing critical template variables:{Style.RESET_ALL}")
@@ -429,23 +452,76 @@ def main():
         sys.exit(1)
     
     if warnings:
-        print(f"{Fore.YELLOW}Missing template variables (will be empty):{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Missing script template variables (will be empty):{Style.RESET_ALL}")
         for warn in warnings:
             print(f"  {warn}")
     
-    # Generate output filename
-    output_filename = generate_output_filename(ojs_filenames)
-    output_path = os.path.join(script_dir, output_filename)
+    # Generate script output filename and render
+    script_filename = generate_output_filename(ojs_filenames, "closing-ceremony")
+    script_path = os.path.join(script_dir, script_filename)
     
-    # Render
-    success = renderer.render(template_file, template_data, output_path)
+    if renderer.render(script_template_file, template_data, script_path):
+        print_success(f"Ceremony script: {script_filename}")
+        output_files.append(script_path)
+    else:
+        print_error_msg(f"Failed to render ceremony script")
+        all_success = False
     
-    if success:
+    # Render summary
+    print(f"\n{Fore.CYAN}Rendering ceremony summary...{Style.RESET_ALL}")
+    summary_template_file = 'summary_template.html.jinja'
+    
+    # Validate summary template (no critical vars for summary)
+    errors, warnings = renderer.validate_template_variables(summary_template_file, template_data, set())
+    
+    if warnings:
+        print(f"{Fore.YELLOW}Missing summary template variables (will be empty):{Style.RESET_ALL}")
+        for warn in warnings:
+            print(f"  {warn}")
+    
+    # Generate summary output filename and render
+    summary_filename = generate_output_filename(ojs_filenames, "summary")
+    summary_path = os.path.join(script_dir, summary_filename)
+    
+    if renderer.render(summary_template_file, template_data, summary_path):
+        print_success(f"Ceremony summary: {summary_filename}")
+        output_files.append(summary_path)
+    else:
+        print_error_msg(f"Failed to render ceremony summary")
+        all_success = False
+
+    # Render fill-in form (paper backup)
+    print(f"\n{Fore.CYAN}Rendering fill-in awards form...{Style.RESET_ALL}")
+    fillin_template_file = 'fillin_template.html.jinja'
+
+    # No critical variables for fill-in; only uses award names from config
+    errors, warnings = renderer.validate_template_variables(fillin_template_file, template_data, set())
+
+    if warnings:
+        print(f"{Fore.YELLOW}Missing fill-in template variables (will be empty):{Style.RESET_ALL}")
+        for warn in warnings:
+            print(f"  {warn}")
+
+    # Generate fill-in output filename and render
+    fillin_filename = generate_output_filename(ojs_filenames, "fillin-form")
+    fillin_path = os.path.join(script_dir, fillin_filename)
+
+    if renderer.render(fillin_template_file, template_data, fillin_path):
+        print_success(f"Fill-in awards form: {fillin_filename}")
+        output_files.append(fillin_path)
+    else:
+        print_error_msg(f"Failed to render fill-in awards form")
+        all_success = False
+    
+    # Final status
+    if all_success:
         print(f"\n{Fore.GREEN}{'═' * 70}{Style.RESET_ALL}")
         print(f"{Fore.GREEN}SUCCESS!{Style.RESET_ALL}".center(78))
         print(f"{Fore.GREEN}{'═' * 70}{Style.RESET_ALL}\n")
-        print(f"{Fore.GREEN}Closing ceremony script generated:{Style.RESET_ALL}")
-        print(f"  {output_path}\n")
+        print(f"{Fore.GREEN}Generated {len(output_files)} file(s):{Style.RESET_ALL}")
+        for output_path in output_files:
+            print(f"  {output_path}")
+        print()
         
         # Check if there were any warnings during the process
         has_warnings = (
@@ -458,14 +534,14 @@ def main():
             print(f"{Fore.YELLOW}{'─' * 70}{Style.RESET_ALL}")
             print(f"{Fore.YELLOW}⚠ WARNINGS DETECTED{Style.RESET_ALL}")
             print(f"{Fore.YELLOW}{'─' * 70}{Style.RESET_ALL}")
-            print(f"{Fore.YELLOW}Script generated but there are warnings you should review.{Style.RESET_ALL}")
-            print(f"{Fore.YELLOW}Scroll up to review the warnings and carefully review the script.{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}Files generated but there are warnings you should review.{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}Scroll up to review the warnings and carefully review the outputs.{Style.RESET_ALL}")
             print(f"{Fore.YELLOW}Make changes to the OJS if needed and re-run the script generator.{Style.RESET_ALL}\n")
             input(f"{Fore.YELLOW}Press ENTER to exit...{Style.RESET_ALL}")
         else:
             input("Press ENTER to exit...")
     else:
-        print_error(logger, "Failed to render ceremony script")
+        print_error(logger, "Failed to render one or more ceremony outputs")
 
 
 if __name__ == "__main__":

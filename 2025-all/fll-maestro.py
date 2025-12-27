@@ -130,7 +130,16 @@ Examples:
     
     return parser.parse_args()
 
-def validate_environment(dir_path: str, config: dict, tournament_file: str, template_file: str, extrafilelist: list, quiet: bool = False) -> ValidationSummary:
+def validate_environment(
+    dir_path: str, 
+    config: dict, 
+    tournament_file: str, 
+    template_file: str, 
+    common_files: list[dict],
+    divisions_only_files: list[dict],
+    no_divisions_only_files: list[dict],
+    quiet: bool = False
+) -> ValidationSummary:
     """Validate the environment before processing.
     
     Args:
@@ -138,7 +147,9 @@ def validate_environment(dir_path: str, config: dict, tournament_file: str, temp
         config: Configuration dictionary
         tournament_file: Path to tournament file
         template_file: Path to template file
-        extrafilelist: List of extra files to copy
+        common_files: List of {source, dest} dicts for common files
+        divisions_only_files: List of {source, dest} dicts for division-specific files
+        no_divisions_only_files: List of {source, dest} dicts for non-division-specific files
         quiet: If True, suppress info messages
         
     Returns:
@@ -147,7 +158,7 @@ def validate_environment(dir_path: str, config: dict, tournament_file: str, temp
     summary = ValidationSummary()
     
     # Check configuration
-    required_config_keys = ["filename", "tournament_template", "copy_file_list", "season_yr", "season_name", "tournament_folder"]
+    required_config_keys = ["filename", "tournament_template", "season_yr", "season_name", "tournament_folder"]
     missing = [k for k in required_config_keys if k not in config]
     if missing:
         summary.add_error(f"Missing config keys: {', '.join(missing)}")
@@ -174,16 +185,18 @@ def validate_environment(dir_path: str, config: dict, tournament_file: str, temp
     elif not quiet:
         summary.add_info(f"Template file found: {os.path.basename(template_file)}")
     
-    # Check extra files
+    # Check extra files - combine all file lists and extract source filenames
+    all_files = common_files + divisions_only_files + no_divisions_only_files
     missing_files = []
-    for filename in extrafilelist:
-        if not os.path.exists(os.path.join(dir_path, filename)):
-            missing_files.append(filename)
+    for file_mapping in all_files:
+        source_file = file_mapping.get("source", "")
+        if source_file and not os.path.exists(os.path.join(dir_path, source_file)):
+            missing_files.append(source_file)
     
     if missing_files:
         summary.add_warning(f"Missing optional files: {', '.join(missing_files)}")
     elif not quiet:
-        summary.add_info(f"All {len(extrafilelist)} extra files found")
+        summary.add_info(f"All {len(all_files)} extra files found")
     
     return summary
 
@@ -314,7 +327,12 @@ def main():
 
     tournament_file = os.path.join(dir_path, config["filename"])
     template_file = os.path.join(dir_path, config["tournament_template"])
-    extrafilelist = config["copy_file_list"]
+    
+    # Get file lists for copying to tournament folders
+    common_files = config.get("copy_file_list_common", [])
+    divisions_only_files = config.get("copy_file_list_divisions_only", [])
+    no_divisions_only_files = config.get("copy_file_list_no_divisions_only", [])
+    
     tournament_folder = config["tournament_folder"]
     
     # Ensure tournament folder exists
@@ -340,7 +358,11 @@ def main():
         if not quiet:
             print_section_header("PRE-FLIGHT VALIDATION")
         
-        validation = validate_environment(dir_path, config, tournament_file, template_file, extrafilelist, quiet=quiet)
+        validation = validate_environment(
+            dir_path, config, tournament_file, template_file,
+            common_files, divisions_only_files, no_divisions_only_files,
+            quiet=quiet
+        )
         
         # Always display validation results if there are errors or warnings
         if validation.has_errors() or validation.warnings:
@@ -593,7 +615,11 @@ def main():
             progress.update("Folder created")
         
         # Copy files
-        copy_files(row, dir_path, template_file, extrafilelist, tournament_folder, using_divisions)
+        copy_files(
+            row, dir_path, template_file,
+            common_files, divisions_only_files, no_divisions_only_files,
+            tournament_folder, using_divisions
+        )
         if not quiet:
             progress.update("Files copied")
 
