@@ -41,6 +41,7 @@ from modules.worksheet_setup import (
     remove_external_links,
     fix_named_ranges,
 )
+from modules.ceremony_renderer import CeremonyRenderer
 from modules.user_feedback import (
     ValidationSummary,
     ProgressTracker,
@@ -623,6 +624,33 @@ def main():
         if not quiet:
             progress.update("Files copied")
 
+        # Render fill-in awards form (paper backup) directly into the tournament folder
+        try:
+            renderer = CeremonyRenderer(newpath)
+            fillin_template_file = 'fillin_template.html.jinja'
+            fillin_output = os.path.join(newpath, 'fillin_form.html')
+
+            template_data = {
+                'tournament_name': row.get(COL_LONG_NAME, row.get(COL_SHORT_NAME, '')),
+                'awards_config': config.get('AWARDS', [])
+            }
+
+            errors, warnings = renderer.validate_template_variables(fillin_template_file, template_data, set())
+            if errors:
+                logger.error(f"Fill-in template missing critical variables: {errors}")
+            if warnings and not quiet:
+                print_warning(f"Fill-in form missing optional variables: {', '.join(warnings)}")
+
+            if renderer.render(fillin_template_file, template_data, fillin_output):
+                if not quiet:
+                    print_success("Fill-in awards form created")
+            else:
+                print_warning("Fill-in awards form could not be generated")
+                logger.warning(f"Fill-in form render failed for {newpath}")
+        except Exception as e:
+            print_warning("Unable to generate fill-in awards form")
+            logger.warning(f"Fill-in form generation failed for {newpath}: {e}")
+
         # Process OJS file
         ojs_name = row.get(COL_OJS_FILENAME)
         if ojs_name is None or (isinstance(ojs_name, float) and pd.isna(ojs_name)):
@@ -702,6 +730,42 @@ def main():
         
         if award_mismatches:
             award_count_issues[tourn_name] = award_mismatches
+
+        # Render fill-in awards form (paper backup) into the tournament folder
+        try:
+            config_path = os.path.join(newpath, 'tournament_config.json')
+            if not os.path.exists(config_path):
+                logger.warning(f"Fill-in form skipped; config not found: {config_path}")
+            else:
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    tourn_config = json.load(f)
+
+                renderer = CeremonyRenderer(newpath)
+                fillin_template_file = 'fillin_template.html.jinja'
+                fillin_output = os.path.join(newpath, 'fillin_form.html')
+
+                template_data = {
+                    'tournament_name': tourn_config.get('INFO', {}).get('tournament_long_name', ''),
+                    'awards_config': tourn_config.get('AWARDS', []),
+                    'adv_count': row.get(COL_ADVANCING, 0),
+                    'division_label': row.get(COL_DIVISION, ''),
+                }
+
+                errors, warnings = renderer.validate_template_variables(fillin_template_file, template_data, set())
+                if errors:
+                    logger.error(f"Fill-in template missing critical variables: {errors}")
+                if warnings and not quiet:
+                    print_warning(f"Fill-in form missing optional variables: {', '.join(warnings)}")
+
+                if renderer.render(fillin_template_file, template_data, fillin_output):
+                    if not quiet:
+                        print_success("Fill-in awards form created")
+                else:
+                    print_warning("Fill-in awards form could not be generated")
+                    logger.warning(f"Fill-in form render failed for {newpath}")
+        except Exception as e:
+            print_warning("Unable to generate fill-in awards form")
+            logger.warning(f"Fill-in form generation failed for {newpath}: {e}")
             
         if not quiet:
             progress.complete(f"✓ {tournament_name} complete!")

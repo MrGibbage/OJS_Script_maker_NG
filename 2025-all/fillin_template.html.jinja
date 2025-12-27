@@ -7,9 +7,9 @@
   - OR copies fillin_template-with-divisions.html.jinja if using_divisions = True
   - The copied file is always named 'fillin_template.html.jinja' in the tournament folder
 
-  TOAST renders this template to create a printable backup form. It lists every
-  allocated award with blank spaces for team number and team name so the ceremony
-  can continue even if computers are unavailable.
+    MAESTRO renders this template during folder creation to create a printable
+    backup form. It lists every allocated award with blank spaces for team number
+    and team name so the ceremony can continue even if computers are unavailable.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -56,7 +56,6 @@
 </head>
 <body>
 <h1>{{ tournament_name }} Fill-In Awards Form</h1>
-<p class="lead">Use this sheet to write in winners if the computer is unavailable. Award names below are pulled from the tournament configuration.</p>
 
 {% macro ordinal(n) -%}
 {%- set n = n|int -%}
@@ -116,6 +115,23 @@
     {% endfor %}
     {% if not ns.has_rows %}
         <tr><td colspan="3">No judged awards configured.</td></tr>
+    {% endif %}
+</table>
+
+<h2>Advancing Teams</h2>
+<table>
+    <tr><th class="award-col">Advancing Team</th><th class="teamnum-col">Team #</th><th class="teamname-col">Team Name</th></tr>
+    {% set adv_count_num = adv_count|default(0)|int %}
+    {% if adv_count_num > 0 %}
+        {% for i in range(adv_count_num) %}
+        <tr>
+            <td class="award-col">Advancing Team {{ ordinal(i + 1) }}</td>
+            <td class="teamnum-col"><span class="blank short">&nbsp;</span></td>
+            <td class="teamname-col"><span class="blank">&nbsp;</span></td>
+        </tr>
+        {% endfor %}
+    {% else %}
+        <tr><td colspan="3">No advancing teams configured.</td></tr>
     {% endif %}
 </table>
 </body>

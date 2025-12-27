@@ -490,29 +490,6 @@ def main():
         print_error_msg(f"Failed to render ceremony summary")
         all_success = False
 
-    # Render fill-in form (paper backup)
-    print(f"\n{Fore.CYAN}Rendering fill-in awards form...{Style.RESET_ALL}")
-    fillin_template_file = 'fillin_template.html.jinja'
-
-    # No critical variables for fill-in; only uses award names from config
-    errors, warnings = renderer.validate_template_variables(fillin_template_file, template_data, set())
-
-    if warnings:
-        print(f"{Fore.YELLOW}Missing fill-in template variables (will be empty):{Style.RESET_ALL}")
-        for warn in warnings:
-            print(f"  {warn}")
-
-    # Generate fill-in output filename and render
-    fillin_filename = generate_output_filename(ojs_filenames, "fillin-form")
-    fillin_path = os.path.join(script_dir, fillin_filename)
-
-    if renderer.render(fillin_template_file, template_data, fillin_path):
-        print_success(f"Fill-in awards form: {fillin_filename}")
-        output_files.append(fillin_path)
-    else:
-        print_error_msg(f"Failed to render fill-in awards form")
-        all_success = False
-    
     # Final status
     if all_success:
         print(f"\n{Fore.GREEN}{'═' * 70}{Style.RESET_ALL}")
